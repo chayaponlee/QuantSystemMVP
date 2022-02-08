@@ -49,6 +49,6 @@ log.info("Total download time: ", (e_time_chunk-s_time_chunk), "sec")
 # Concat into one dataframe
 stacked_hist = pd.concat(stacked_data)
 
-stacked_hist.to_csv('stacked_hist.csv', index=None)
+stacked_hist.to_csv('stacked_hist.csv', index=False)
 
 
