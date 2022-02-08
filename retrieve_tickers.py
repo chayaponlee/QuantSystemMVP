@@ -1,5 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import nasdaqdatalink as ndl
 import time
@@ -53,6 +51,6 @@ log.info("Total download time: ", (e_time_chunk-s_time_chunk), "sec")
 # Concat into one dataframe
 stacked_hist = pd.concat(stacked_data)
 
-stacked_hist.to_csv('stacked_hist.csv', index=False)
+stacked_hist.to_csv('Data/stacked_hist.csv', index=False)
 
 
