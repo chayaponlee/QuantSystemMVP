@@ -18,6 +18,8 @@ def load_file(path):
     try:
         with open(path, 'rb') as fp:
             file = pickle.load(fp)
-            input(file)
+
     except Exception as err:
         print('load error: ', str(err))
+
+    return file
