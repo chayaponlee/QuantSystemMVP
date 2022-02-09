@@ -1,5 +1,9 @@
 import setuptools
 
+"""
+Run 'pip install -e.' in the root project folder to install quantlib library 
+"""
+
 setuptools.setup(
 
     name='quantlib',
