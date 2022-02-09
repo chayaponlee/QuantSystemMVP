@@ -3,6 +3,7 @@ import nasdaqdatalink as ndl
 import time
 import logging as log
 from requests.exceptions import ChunkedEncodingError
+from Utils import general_utils as gu
 
 log.basicConfig(level='INFO')
 
@@ -33,7 +34,7 @@ filter_cat = ['Domestic Common Stock', 'ADR Common Stock',
 focused_stocks_ticker = tickers_metadata[
     (tickers_metadata.exchange.isin(filter_exchange)) & (tickers_metadata.category.isin(filter_cat))].ticker.unique()
 
-log.info(f"Total tickers: {len(list(focused_stocks_ticker))}")
+log.info(f"Total tickers: {len(focused_stocks_ticker)}")
 
 # Retrieve data via for loop (might be a more efficient way to do this)
 stacked_data = []
@@ -41,12 +42,13 @@ stacked_data = []
 s_time_chunk = time.time()
 log.info("Fetching historical data")
 for i, ticker in enumerate(focused_stocks_ticker):
-    # log.info(i)
+
     try_cnt = 0
     while try_cnt <= 20:
         try:
             data = ndl.get_table('SHARADAR/SEP', ticker=ticker, paginate=True, date={'gte': '2012-01-01'})
             break
+        # in case of network failure, try again after 5 seconds for 20 tries
         except ChunkedEncodingError as ex:
             if try_cnt > 20:
                 log.info(f'Error (after trying multiple times): {ex}')
@@ -63,10 +65,16 @@ for i, ticker in enumerate(focused_stocks_ticker):
 e_time_chunk = time.time()
 
 log.info("Done")
-log.info("Total download time: ", (e_time_chunk - s_time_chunk), "sec")
+log.info(f"Total download time: {e_time_chunk - s_time_chunk} sec")
 
 # Concat into one dataframe
 stacked_hist = pd.concat(stacked_data)
 stacked_hist.sort_values(['ticker', 'date'], inplace=True)
 
-stacked_hist.to_csv('Data/stacked_hist.csv', index=False)
+# actual downloaded tickers, as some of them are probably not available before 2012 due to subscription package limits
+available_tickers = stacked_hist.ticker.unique()
+
+save_path = 'Data/stock_hist.obj'
+gu.save_file(save_path, (stacked_hist, focused_stocks_ticker, available_tickers))
+# stacked_hist.to_csv(f'{save_path}stacked_hist.csv', index=False)
+log.info(f"Historical Stock data written to {save_path}")
