@@ -55,7 +55,7 @@ def retrieve_historical_stocks():
                   'Domestic Common Stock Secondary Class']
 
     By default, data will be save as a tuple format via pickle I/O functions
-    Tuple Format: (data_long_format, data_wide_format, ticker universe, actual available tickers)
+    Tuple Format: (data_long_format, data_wide_format, available tickers)
 
     data_long_format columns: ['ticker', 'date', 'open', 'high', 'low', 'close', 'openadj', 'highadj',
                                     'lowadj', 'closeadj', 'volume']]
