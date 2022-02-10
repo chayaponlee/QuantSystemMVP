@@ -7,6 +7,13 @@ import pickle
 
 
 def save_file(path, obj):
+    """
+    Saves file object via pickle
+
+    :param path: str
+    :param obj: object
+    """
+
     try:
         with open(path, 'wb') as fp:
             pickle.dump(obj, fp)
@@ -15,6 +22,13 @@ def save_file(path, obj):
 
 
 def load_file(path):
+    """
+    Loads the object via pickle
+
+    :param path: str
+    :return: object
+    """
+
     try:
         with open(path, 'rb') as fp:
             file = pickle.load(fp)

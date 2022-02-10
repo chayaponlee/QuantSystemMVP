@@ -17,6 +17,12 @@ should be the same
 
 
 def format_date(dates):
+    """
+    Standardizes the date value in a particular date format yy-mm-dd
+
+    :param dates: str, datetime object
+    :return: datetime object
+    """
     yymmdd = list(map(lambda x: int(x), str(dates).split(" ")[0].split("-")))
     # what this does is take a list of dates in [yy--mm--dd {other stuff} format
     # strips away the other stuff , then returns the datetime object
@@ -37,6 +43,17 @@ For MacAir: you can configure the file at
 
 def retrieve_historical_stocks():
     """
+    Retrieve historical stocks via Nasdaq Data Link based on American Stocks
+
+    Exchanges: ['NYSE', 'NASDAQ', 'NYSEMKT']
+
+    Type of Stocks: ['Domestic Common Stock', 'ADR Common Stock',
+                  'Domestic Common Stock Primary Class', 'Canadian Common Stock',
+                  'ADR Common Stock Primary Class',
+                  'Canadian Common Stock Primary Class',
+                  'ADR Common Stock Secondary Class',
+                  'Domestic Common Stock Secondary Class']
+
     By default, data will be save as a tuple format via pickle I/O functions
     Tuple Format: (data_long_format, data_wide_format, ticker universe, actual available tickers)
 
@@ -45,6 +62,8 @@ def retrieve_historical_stocks():
 
     data_wide_format columns: ['date', 'open', 'high', 'low', 'close',
                             'openadj', 'highadj', 'lowadj', 'closeadj', 'volume']
+
+    :return:  tuple(pd.DataFrame, pd.DataFrame, list, list)
     """
 
     # Get ticket information: list of tickers
@@ -149,8 +168,13 @@ def retrieve_historical_stocks():
 
 def extend_dataframe(traded, df):
     """
-    Adding returns, returns volatility, and is_active columns
+    Extends the historical data (wide format) to have other stats like returns, vol, and is_active values
+
+    :param traded: list
+    :param df: pd.DataFrame
+    :return: pd.DataFrame
     """
+    # formats date
     df.index = pd.Series(df.index).apply(lambda x: format_date(x))
     open_cols = list(map(lambda x: f'{x}_open', traded))
     high_cols = list(map(lambda x: f'{x}_high', traded))

@@ -3,6 +3,8 @@ import logging.config
 import os
 import sys
 
+"""Formatted logger to fit our needs"""
+
 # Set ROOT logger
 logger = logging.getLogger()
 formatter = logging.Formatter('%(asctime)s - %(filename)-10s - %(funcName)-8s - %(levelname)-6s - %(message)s',
