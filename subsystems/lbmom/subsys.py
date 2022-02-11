@@ -63,8 +63,8 @@ class Lbmom():
         print(portfolio_df)
 
 
-        # date_plus1 is needed to ensure that the second condition returns dataframe 5 days before 'date
-        # if we use date, then it returns the dataframe including 'date' as well, which is weird
+        # date_less1 is needed to ensure that the second condition returns dataframe 5 days before 'date'
+        # if we use 'date', then it returns the dataframe including 'date' as well, which is weird
         is_halted = lambda inst, date, date_less1: not np.isnan(historical_data.loc[date, f'{inst}_active']) and \
                                        (~historical_data[:date_less1].tail(5)[f'{inst}_active']).all()
 
