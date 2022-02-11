@@ -13,7 +13,7 @@ logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
 DATA_PATH = f'{PROJECT_PATH}/Data/stock_hist.obj'
-CONFIG_PATH = f"{DATA_PATH}/subsystems/lbmom/config.json"
+CONFIG_PATH = f"{PROJECT_PATH}/subsystems/lbmom/config.json"
 
 # we might want to later put VOL_TARGET in the config file
 VOL_TARGET = 0.20
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     # df, instruments = du.get_sp500_df()
     # df = du.extend_dataframe(traded=instruments, df=df)
 
-    stocks_df, stocks_wide_df, stocks_extended_df, available_tickers = gu.load_file(f"{DATA_PATH}/Data/stock_hist.obj")
+    (stocks_df, stocks_wide_df, stocks_extended_df, available_tickers) = gu.load_file(DATA_PATH)
     print(available_tickers)
 
     # lets run the lbmom strategy through the driver.
