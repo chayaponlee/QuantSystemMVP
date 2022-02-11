@@ -1,6 +1,8 @@
 import json
 from quantlib import indicators_cal
+import numpy as np
 import pandas as pd
+
 
 class Lbmom():
     """
@@ -29,7 +31,7 @@ class Lbmom():
         # let's also use a filter, to identify false positive signals. We use the average directional index, or the adx
 
         for inst in instruments:
-            historical_data["{} adx".format(inst)] = indicators_cal.adx_series(
+            historical_data[f'{inst}_adx{self.n_adx}'] = indicators_cal.adx_series(
                 high=historical_data[f'{inst}_highadj'],
                 low=historical_data[f'{inst}_lowadj'],
                 close=historical_data[f'{inst}_closeadj'],
@@ -56,7 +58,28 @@ class Lbmom():
 
         # perform simulation
         portfolio_df = pd.DataFrame(index=historical_data[self.simulation_start:].index).reset_index()
+        # wonderful technique in creating a column with assigned first value only
+        portfolio_df.loc[0, 'capital'] = 10000
         print(portfolio_df)
+
+
+        # date_plus1 is needed to ensure that the second condition returns dataframe 5 days before 'date
+        # if we use date, then it returns the dataframe including 'date' as well, which is weird
+        is_halted = lambda inst, date, date_less1: not np.isnan(historical_data.loc[date, f'{inst}_active']) and \
+                                       (~historical_data[:date_less1].tail(5)[f'{inst}_active']).all()
+
+        for i in portfolio_df.index:
+            date = portfolio_df.loc[i, 'date']
+            strat_scalar = 2
+
+            if i > 0:
+                date_less1 = portfolio_df.loc[i - 1, 'date']
+            else:
+                date_less1 = date
+
+            tradable = [inst for inst in instruments if not is_halted(inst, date, date_less1)]
+            non_tradable = [inst for inst in instruments if inst not in tradable]
+
 
         # run diagnostics
 
