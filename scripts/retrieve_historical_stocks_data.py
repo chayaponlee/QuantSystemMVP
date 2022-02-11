@@ -4,6 +4,9 @@ import logging
 from quantlib import data_utils as du
 from quantlib import general_utils as gu
 from quantlib import qlogger
+import warnings
+
+warnings.filterwarnings("ignore")
 
 logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
