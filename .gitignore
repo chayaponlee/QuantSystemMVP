@@ -8,6 +8,7 @@ __pycache__/
 
 # Personal
 Data/
+Backtest_Data/
 
 # Distribution / packaging
 .Python
