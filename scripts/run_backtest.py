@@ -16,9 +16,11 @@ logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
 DATA_PATH = f'{PROJECT_PATH}/Data/stock_hist.obj'
-CONFIG_PATH = f"{PROJECT_PATH}/subsystems/lbmom/config.json"
+CONFIG_PATH = f'{PROJECT_PATH}/subsystems/lbmom/config.json'
+BD_PATH = f'{PROJECT_PATH}/Backtest_Data'
 
 # we might want to later put VOL_TARGET in the config file
+# we are targetting 20% annualized vol
 VOL_TARGET = 0.20
 
 if __name__ == '__main__':
@@ -27,21 +29,18 @@ if __name__ == '__main__':
     # df = du.extend_dataframe(traded=instruments, df=df)
 
     (stocks_df, stocks_wide_df, stocks_extended_df, available_tickers) = gu.load_file(DATA_PATH)
-    print(available_tickers)
+    logger.info(f'Available Tickers: {available_tickers}')
 
     # lets run the lbmom strategy through the driver.
 
-      # we are targetting 20% annualized vol
-
     # let's perform the simulation for the past 5 years
-
-    print(stocks_extended_df.index[-1])  # is today's date. (as I film) 2022-01-19
     # I want to start testing from 5 years back
-
     sim_start = stocks_extended_df.index[-1] - relativedelta(years=5)
-    print(sim_start)
+    logger.info(f'Backtest start: {sim_start}')
+
+    logger.info(f'Backtest end: {stocks_extended_df.index[-1]}')  # is today's date. (as I film) 2022-01-19
 
     strat = Lbmom(instruments_config=CONFIG_PATH, historical_df=stocks_extended_df,
-                  simulation_start=sim_start, vol_target=VOL_TARGET)
+                  simulation_start=sim_start, vol_target=VOL_TARGET, backtest_dir_path=BD_PATH)
 
-    strat.get_subsys_pos()
+    portfolio_strat = strat.get_subsys_pos()
