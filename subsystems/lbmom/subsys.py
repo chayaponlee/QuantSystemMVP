@@ -7,7 +7,9 @@ from datetime import datetime
 
 import logging
 import quantlib.qlogger as qlogger
+
 logger = qlogger.init(__file__, logging.INFO)
+
 
 class Lbmom():
     """
@@ -106,7 +108,6 @@ class Lbmom():
             tradable = [inst for inst in instruments if not is_halted(inst, date, date_prev)]
             non_tradable = [inst for inst in instruments if inst not in tradable]
 
-
             """
             Get Positions for Traded Instruments, Assign 0 to Non-Traded
             """
@@ -127,7 +128,7 @@ class Lbmom():
                 forecast = 0 if historical_data.loc[date, f'{inst}_adx{self.n_adx}'] < 25 else forecast
 
                 # volatility targetting
-                position_vol_target = (1 / len(tradable)) + portfolio_df.loc[i, 'capital'] + \
+                position_vol_target = (1 / len(tradable)) * portfolio_df.loc[i, 'capital'] * \
                                       self.vol_target / np.sqrt(253)
                 inst_price = historical_data.loc[date, f'{inst}_closeadj']
 
@@ -139,11 +140,11 @@ class Lbmom():
                 percent_ret_vol = historical_data.loc[date, f'{inst}_retvol'] \
                     if historical_data[:date].tail(25)[f'{inst}_active'].all() else 0.025
 
-                dollar_volatility = inst_price * percent_ret_vol # vol in dollar terms
-                position = strat_scalar * forecast * self.vol_target / dollar_volatility
+                dollar_volatility = inst_price * percent_ret_vol  # vol in dollar terms
+                position = strat_scalar * forecast * position_vol_target / dollar_volatility
                 portfolio_df.loc[i, f'{inst}_units'] = position
 
-                nominal_total += abs(position * inst_price) # assuming all denominated in same currency
+                nominal_total += abs(position * inst_price)  # assuming all denominated in same currency
 
             for inst in tradable:
                 units = portfolio_df.loc[i, f"{inst}_units"]
@@ -191,5 +192,3 @@ class Lbmom():
 
     # each strategy has a config file, so that we can control some parameters. later, we shall see how this might be useful
     #:)))
-
-
