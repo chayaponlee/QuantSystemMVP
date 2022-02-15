@@ -68,7 +68,7 @@ class Lbmom():
         # wonderful technique in creating a column with assigned first value only
         portfolio_df.loc[0, 'capital'] = 10000
 
-        # date_less1 is needed to ensure that the second condition returns dataframe 5 days before 'date'
+        # date_prev (arg_date_prev) is needed to ensure that the second condition returns dataframe 5 days before 'date'
         # if we use 'date', then it returns the dataframe including 'date' as well, which is weird
         # condition, if the instrument has been inactive for the past 5 days before current date then consider
         # halting trading for the instrument
