@@ -172,7 +172,7 @@ class Lbmom():
         # run diagnostics
 
         # return dataframe
-        current_datetime = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         backtest_csv_path = f'{self.backtest_dir_path}/{self.sysname}_{current_datetime}.csv'
         portfolio_df.to_csv(f"{backtest_csv_path}", index=False)
         logger.info(f'Backtest results imported to {backtest_csv_path}')
