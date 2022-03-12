@@ -1,22 +1,26 @@
-import json
-import quantlib.indicators_cal as indicators_cal
-import quantlib.backtest_utils as backtest_utils
+from realgam.quantlib import data_utils, indicators_cal, backtest_utils, qlogger, general_utils
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import itertools
+from multiprocessing import Pool
+import time
+from functools import partial
+
+from realgam.strategy.interface import BaseStrategy
 
 import logging
-import quantlib.qlogger as qlogger
 
 logger = qlogger.init(__file__, logging.INFO)
 
 
-class Lbmom():
+class Lbmom(BaseStrategy):
     """
     Long biased momentum strategy
     """
 
     def __init__(self, instruments_config, historical_df, simulation_start, vol_target, backtest_dir_path):
+        super().__init__(instruments_config)
         self.ma_pairs = [(23, 82), (44, 244), (124, 294), (37, 229), (70, 269), (158, 209), (81, 169), (184, 203),
                          (23, 265), (244, 268), (105, 106), (193, 250), (127, 294), (217, 274), (45, 178),
                          (103, 288), (204, 248), (142, 299), (71, 216), (129, 148), (149, 218)]
@@ -24,8 +28,8 @@ class Lbmom():
         self.historical_df = historical_df
         self.simulation_start = simulation_start
         self.vol_target = vol_target
-        with open(instruments_config) as f:
-            self.instruments_config = json.load(f)
+        # with open(instruments_config) as f:
+        #     self.instruments_config = json.load(f)
         self.sysname = 'LBMOM'
         self.backtest_dir_path = backtest_dir_path
 
@@ -33,11 +37,13 @@ class Lbmom():
     # 1. A function to get extra indicators specific to this strategy
     # 2. A function to run a backtest/get positions from this strategy
 
-    def extend_historicals(self, instruments, historical_data):
+    def extend_historicals(self, historical_data, instruments):
         # we need indicators of `momentum`
         # let this be the moving average crossover, such that if the fastMA crossover the slowMA, then it is a buy
         # a long-biased momentum strategy is biased in the long direction. let this be a 100/0 L/S strategy.
         # let's also use a filter, to identify false positive signals. We use the average directional index, or the adx
+
+        # instrument_pair_product = list(itertools.product(instruments, self.ma_pairs))
 
         for inst in instruments:
             historical_data[f'{inst}_adx{self.n_adx}'] = indicators_cal.adx_series(
@@ -54,13 +60,16 @@ class Lbmom():
                     series=historical_data[f'{inst}_closeadj'],
                     n=pair[1]
                 )  # fastMA - slowMA
+
+
         # now historical data has ohlcvs, and whether the fastMA - slowMA for each pair,
         # and the adx of the closing prices to see if there is a `trending` regime
         return historical_data
 
     def run_backtest(self, historical_data):
         # init parameters
-        instruments = self.instruments_config["instruments"]
+        # get instrument universe
+        instruments = self.config["instruments"]
 
         # calculate/pre-process indicators
         historical_data = self.extend_historicals(instruments=instruments, historical_data=historical_data)
