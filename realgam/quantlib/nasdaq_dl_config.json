@@ -1,0 +1,13 @@
+{
+  "exchanges": ["NYSE", "NASDAQ", "NYSEMKT"],
+
+  "stock_categories": ["Domestic Common Stock", "ADR Common Stock",
+                  "Domestic Common Stock Primary Class", "Canadian Common Stock",
+                  "ADR Common Stock Primary Class",
+                  "Canadian Common Stock Primary Class",
+                  "ADR Common Stock Secondary Class",
+                  "Domestic Common Stock Secondary Class"]
+
+
+}
+
