@@ -166,6 +166,9 @@ def update_historical_data(existing_hist: pd.DataFrame) -> pd.DataFrame:
 
     new_hist = retrieve_historical_stocks(next_avai_date.strftime("%Y-%m-%d"))
 
+    # if no new data, exit the code
+    if new_hist.shape[0] == 0:
+        raise Exception("No New Data Available, Data Update Process Stopped")
     new_stacked_hist = pd.concat([existing_hist, new_hist])
     new_stacked_hist = new_stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index('date')
 
@@ -225,14 +228,22 @@ def extend_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
     retvol_cols = list(map(lambda x: f'{x}_retvol', traded))
     active_cols = list(map(lambda x: f'{x}_active', traded))
 
+    # Pay attention to how we fill the data with nan values, for example we bfill and ffill ohlcv but we bfill and ffill
+    # ret and retvol with 0, the function code is different from HanggukQuant's, and we are not sure if this would
+    # affect the performance results or not, but we hope it does not. Hopefully, the active columns should be a good
+    # indicator in preventing us from selecting inactive stocks
     historical_data = stacked_hist_wide.copy()
     historical_ohlcv_data = historical_data[open_cols + high_cols + low_cols + close_cols + openadj_cols +
                                             highadj_cols + lowadj_cols + closeadj_cols + volume_cols]
-    historical_stats_data = historical_data[ret_cols + retvol_cols + active_cols]
+
+    historical_retvol_data = historical_data[ret_cols + retvol_cols]
+    historical_active_data = historical_data[active_cols]
+
+    historical_retvol_data.fillna(0, inplace=True)
 
     historical_ohlcv_data.fillna(method="ffill", inplace=True)
 
-    historical_data = pd.concat([historical_ohlcv_data, historical_stats_data], axis=1)
+    historical_data = pd.concat([historical_ohlcv_data, historical_retvol_data, historical_active_data], axis=1)
 
     historical_data.fillna(method="bfill", inplace=True)
 
