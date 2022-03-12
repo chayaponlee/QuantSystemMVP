@@ -156,21 +156,6 @@ def retrieve_historical_stocks(start_date: str = '2012-01-01') -> pd.DataFrame:
     stacked_hist = pd.concat(stacked_data)
     stacked_hist = stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index('date')
 
-    # # We also create a wide dataframe
-    # stacked_hist_wide = pd.DataFrame(index=stacked_hist[stacked_hist.ticker == 'AMZN'].index)
-    # stacked_hist_wide.index.name = "date"
-    # # actual downloaded tickers, as some of them are probably not available before 2012 due to subscription package
-    # # limits
-    # available_tickers = list(stacked_dict.keys())
-    #
-    # for ticker in available_tickers:
-    #     inst_df = stacked_dict[ticker][['open', 'high', 'low', 'close',
-    #                                     'openadj', 'highadj', 'lowadj', 'closeadj', 'volume']]
-    #     # add an identifier to the columns
-    #     columns = list(map(lambda x: f'{ticker}_{x}', inst_df.columns))
-    #     # this adds the instrument name to each column
-    #     stacked_hist_wide[columns] = inst_df
-
     return stacked_hist
 
 
