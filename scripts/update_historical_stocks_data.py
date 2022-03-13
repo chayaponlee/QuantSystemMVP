@@ -14,9 +14,9 @@ SAVE_PATH = f'{PROJECT_PATH}/Data/stock_hist.obj'
 if __name__ == '__main__':
 
     (old_stocks_df, old_stocks_extended_df, old_available_tickers) = gu.load_file(DATA_PATH)
-    new_stocks_df = du.update_historical_data(old_stocks_df)
+    stocks_df = du.update_historical_data(old_stocks_df)
 
-    stocks_df, stocks_extended_df, available_tickers = du.extend_dataframe(new_stocks_df)
+    stocks_extended_df, available_tickers = du.extend_dataframe(stocks_df)
 
     gu.save_file(SAVE_PATH, (stocks_df, stocks_extended_df, available_tickers))
 

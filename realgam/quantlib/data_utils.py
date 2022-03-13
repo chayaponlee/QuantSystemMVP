@@ -100,7 +100,7 @@ def retrieve_historical_stocks(start_date: str = '2012-01-01') -> pd.DataFrame:
     batch_size = 500
     for i in range(0, n_total_tickers, batch_size):
 
-        fetch_list = focused_stocks_ticker[i:i + batch_size]
+        fetch_list = list(focused_stocks_ticker[i:i + batch_size])
 
         try_cnt = 0
         while try_cnt <= 20:
@@ -177,8 +177,11 @@ def update_historical_data(existing_hist: pd.DataFrame) -> pd.DataFrame:
 
 def process_historical_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
     logger.info("Processing Data")
-    ohlcv_columns = ['open', 'high', 'low', 'close', 'openadj', 'highadj', 'lowadj',
-                     'closeadj', 'volume', 'ret', 'retvol']
+    # ohlcv_columns = ['open', 'high', 'low', 'close', 'openadj', 'highadj', 'lowadj',
+    #                  'closeadj', 'volume', 'ret', 'retvol']
+
+    ohlcv_columns = list(stacked_hist.columns)
+    ohlcv_columns.remove('ticker')
 
     stacked_hist_wide = stacked_hist.reset_index().pivot(index='date', columns='ticker', values=ohlcv_columns)
     stacked_hist_wide.columns = [f'{j}_{i}' for i, j in stacked_hist_wide.columns]
@@ -197,6 +200,7 @@ def extend_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
     :return: pd.DataFrame
     """
 
+    stacked_hist = stacked_hist.copy()
     stacked_hist = stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index('date')
     logger.info("Extending DataFrame")
 
@@ -247,4 +251,4 @@ def extend_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
 
     historical_data.fillna(method="bfill", inplace=True)
 
-    return stacked_hist, historical_data, available_tickers
+    return historical_data, available_tickers
