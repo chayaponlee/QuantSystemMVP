@@ -1,11 +1,8 @@
-from realgam.quantlib import data_utils, indicators_cal, backtest_utils, qlogger, general_utils
+from realgam.quantlib import backtest_utils, qlogger
+from realgam.quantlib.factor_lib.technicals import indicators_cal
 import numpy as np
 import pandas as pd
 from datetime import datetime
-import itertools
-from multiprocessing import Pool
-import time
-from functools import partial
 
 from realgam.strategy.interface import BaseStrategy
 
