@@ -11,6 +11,8 @@ For example you can change sma_series to return pd.DataFrame(series).rolling(n).
 
 import talib
 import pandas as pd
+import numpy as np
+from typing import List, Set, Dict, Tuple
 
 
 def calc_ret(prices: pd.Series, n: int = 1) -> pd.Series:
@@ -23,18 +25,58 @@ def calc_ret(prices: pd.Series, n: int = 1) -> pd.Series:
     return prices / prices.shift(n) - 1
 
 
-def calc_roll_std(prices: pd.Series, n: int = 20) -> pd.Series:
+def roll_std(prices: pd.Series, n: int = 20) -> pd.Series:
     """
     Create rolling daily returns volatility (std) based on prices
     :param prices: prices
     :param n: number of days ago to specify range for calculating return volatility
-    :return: pd.Series
+    :return: rolling std series
     """
 
-    ret = prices / prices.shift(1)
+    ret = calc_ret(prices, 1)
 
     return ret.rolling(n).std()
 
+
+def delta(ts: pd.Series, n: int = 1) -> pd.Series:
+    """
+    Computes delta (change) in time series value n days ago
+    Formula: value(t) - value(t-n)
+    :param ts: time series of values
+    :param n: lookback days
+    :return: delta value series
+    """
+
+    delta = ts - ts.shift(n)
+
+    return delta
+
+
+def delta_volume(volume: pd.Series, n: int = 1, is_log: bool = True):
+    """
+    Computes delta (change) in (log) volume n days ago
+    Formula: delta(log(volume), 2)
+    :param volume: volume time series
+    :param n: lookback days
+    :param is_log: if True, log volume is used
+    :return: delta volume series
+    """
+    if is_log:
+        volume = np.log(volume)
+
+    delta_volume = delta(volume, n=n)
+
+    return delta_volume
+
+
+def pct_change(new: pd.Series, old: pd.Series):
+    """
+    Computes percentage change between two Series
+    :param new: new (current) series
+    :param old: old (previous) series
+    :return: percentage changes series
+    """
+    return new / old - 1
 
 
 # talib functions
