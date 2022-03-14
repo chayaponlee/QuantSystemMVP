@@ -14,6 +14,7 @@ scripts/analysis/._market_breadth.html
 scripts/analysis/market_breadth.html
 
 # Distribution / packaging
+.idea
 .Python
 build/
 develop-eggs/
