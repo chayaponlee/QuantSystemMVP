@@ -18,15 +18,15 @@ class BaseStrategy(ABC):
     @abstractmethod
     def extend_historicals(self, historical_data: pd.DataFrame) -> pd.DataFrame:
 
-        return historical_data
+        return pd.DataFrame
 
     @abstractmethod
     def run_backtest(self, historical_data: pd.DataFrame) -> pd.DataFrame:
 
-        return historical_data
+        return pd.DataFrame
 
     @abstractmethod
-    def get_subsys_pos(self) -> None:
+    def get_subsys_pos(self) -> pd.DataFrame:
 
-        pass
+        return pd.DataFrame
 
