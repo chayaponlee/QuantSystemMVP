@@ -11,7 +11,8 @@ import numpy as np
 
 def alpha_1(stacked_hist: pd.DataFrame, n_ts_arg_max: int = 5, n_std: int = 20) -> pd.Series:
     """
-    (rank(Ts_ArgMax(SignedPower(((returns < 0) ? stddev(returns, n_std) : close), 2.), n_ts_arg_max)) - 0.5)
+    Runtime: 38 sec
+    Formula: (rank(Ts_ArgMax(SignedPower(((returns < 0) ? stddev(returns, n_std) : close), 2.), n_ts_arg_max)) - 0.5)
     :param n_std: lookback range for calculating return vol
     :param n_ts_arg_max: lookback range for calculating ts argmax
     :param stacked_hist: historical stock dataframe (columns: datetimeIndex, ticker, and closeadj)
@@ -22,7 +23,7 @@ def alpha_1(stacked_hist: pd.DataFrame, n_ts_arg_max: int = 5, n_std: int = 20) 
     stacked_hist_copy = stacked_hist.copy()
 
     stacked_hist_copy['ret'] = stacked_hist_copy.groupby('ticker').closeadj.apply(ic.calc_ret)
-    stacked_hist_copy[f'retvol{n_std}'] = stacked_hist_copy.groupby('ticker').closeadj.apply(ic.calc_roll_std, n=n_std)
+    stacked_hist_copy[f'retvol{n_std}'] = stacked_hist_copy.groupby('ticker').closeadj.apply(ic.roll_std, n=n_std)
 
     stacked_hist_copy['closeadj_sqr'] = stacked_hist_copy.closeadj ** 2
     stacked_hist_copy['closeadj_argmax'] = (stacked_hist_copy.groupby('ticker').closeadj_sqr.rolling(n_ts_arg_max)
