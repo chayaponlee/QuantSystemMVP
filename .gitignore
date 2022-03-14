@@ -9,7 +9,7 @@ __pycache__/
 # Personal
 Data/
 Backtest_Data/
-notebooks/
+notebooks/.ipynb_checkpoints
 scripts/analysis/._market_breadth.html
 scripts/analysis/market_breadth.html
 
