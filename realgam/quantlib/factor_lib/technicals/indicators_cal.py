@@ -10,7 +10,34 @@ For example you can change sma_series to return pd.DataFrame(series).rolling(n).
 """
 
 import talib
+import pandas as pd
 
+
+def calc_ret(prices: pd.Series, n: int = 1) -> pd.Series:
+    """
+    Create returns series based on prices
+    :param prices: prices
+    :param n: number of days ago to calculate returns
+    :return: pd.Series
+    """
+    return prices / prices.shift(n) - 1
+
+
+def calc_roll_std(prices: pd.Series, n: int = 20) -> pd.Series:
+    """
+    Create rolling daily returns volatility (std) based on prices
+    :param prices: prices
+    :param n: number of days ago to specify range for calculating return volatility
+    :return: pd.Series
+    """
+
+    ret = prices / prices.shift(1)
+
+    return ret.rolling(n).std()
+
+
+
+# talib functions
 
 def adx_series(high, low, close, n):
     """
