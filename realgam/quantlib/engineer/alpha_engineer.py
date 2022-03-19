@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import List, Union
 from realgam.quantlib.engineer.interface import BaseEngineer, GroupBaseEngineer
-from realgam.quantlib.engineer.factor_engineer import FactorEngineer, GroupFactorEngineer
+from realgam.quantlib.engineer.op_engineer import OpEngineer, GroupOpEngineer
 
 
 class AlphaEngineer(GroupBaseEngineer):
@@ -14,7 +14,7 @@ class AlphaEngineer(GroupBaseEngineer):
         if isinstance(groupby_col, str):
             sort_cols = [groupby_col, 'date']
         else:
-            sort_cols = groupby_col.append('date')
+            sort_cols = groupby_col + ['date']
         # we are actually sorting our dataframe reference, if we wish to not manipulate out input, do copy instead
         financial_df.sort_values(sort_cols, inplace=True)
         super().__init__(financial_df, groupby_col)
@@ -43,23 +43,23 @@ class AlphaEngineer(GroupBaseEngineer):
         Formula: (rank(Ts_ArgMax(SignedPower(((returns < 0) ? stddev(returns, n_std) : close), 2.), n_ts_arg_max)) - 0.5)
         :param n_std: lookback range for calculating return vol
         :param n_ts_arg_max: lookback range for calculating ts argmax
-        :param inplace: apply to dataframe attr
-        :return: alpha1
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
         """
 
         df = self.df.copy()
 
-        temp_gfe = GroupFactorEngineer(df, self.groupby_col)
-        df['ret'] = temp_gfe.calc_ret('closeadj').values
-        df[f'retvol{n_std}'] = temp_gfe.roll_vol('closeadj', 20).values
+        temp_gfe = GroupOpEngineer(df, self.groupby_col)
+        df['ret'] = temp_gfe.ts_ret('closeadj').values
+        df[f'retvol{n_std}'] = temp_gfe.ts_std('closeadj', 20).values
 
         df['closeadj_sqr'] = df.closeadj ** 2
         df[f'retvol{n_std}_sqr'] = df[f'retvol{n_std}'] ** 2
 
         temp_gfe.set_df(df)
-        df['closeadj_argmax'] = temp_gfe.roll_tsargmax('closeadj_sqr', n_ts_arg_max).values
+        df['closeadj_argmax'] = temp_gfe.ts_argmax('closeadj_sqr', n_ts_arg_max).values
 
-        df[f'retvol{n_std}_argmax'] = temp_gfe.roll_tsargmax(f'retvol{n_std}_sqr', n_ts_arg_max).values
+        df[f'retvol{n_std}_argmax'] = temp_gfe.ts_argmax(f'retvol{n_std}_sqr', n_ts_arg_max).values
 
         # + 1 so no 0 indices
         df['tsargmax_withcond'] = np.where(df.ret < 0, df[f'retvol{n_std}_argmax'], df.closeadj_argmax) + 1
@@ -79,21 +79,21 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         Runtime: 78 min
         Formula: (-1 * correlation(rank(delta(log(volume), 2)), rank(((close - open) / open)), 6))
-        :param n_delta: range for calculating delta volume
+        :param n_delta: range for calculating delta volume`
         :param n_corr: correlation lookback window
-        :param inplace: apply to dataframe attr
-        :return: alpha2
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
         """
 
         df = self.df.copy()
 
         df['logvolume'] = np.log(df.volume)
-        gfe = GroupFactorEngineer(df, 'ticker')
-        df[f'delta_logvolume_{n_delta}'] = gfe.delta('logvolume', 2).values
+        gfe = GroupOpEngineer(df, 'ticker')
+        df[f'delta_logvolume_{n_delta}'] = gfe.ts_delta('logvolume', 2).values
         df['ret_intraday'] = gfe.pct_change_cols('closeadj', 'openadj').values
         gfe.set_df(df)
-        df[f'pctrank_delta_logvolume_{n_delta}'] = gfe.pctrank(f'delta_logvolume_{n_delta}').values
-        df[f'pctrank_ret_intraday'] = gfe.pctrank('ret_intraday').values
+        df[f'pctrank_delta_logvolume_{n_delta}'] = gfe.cs_pctrank(f'delta_logvolume_{n_delta}').values
+        df[f'pctrank_ret_intraday'] = gfe.cs_pctrank('ret_intraday').values
 
         tickers = df.ticker.unique()
         corr_stack = []
@@ -115,14 +115,14 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         Formula: (-1 * correlation(rank(open), rank(volume), 10))
         :param n_corr: correlation lookback window
-        :param inplace: apply to dataframe attr
-        :return: alpha3
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
         """
         df = self.df.copy()
 
-        gfe = GroupFactorEngineer(df, 'ticker')
-        df['pctrank_openadj'] = gfe.pctrank('openadj').values
-        df['pctrank_volume'] = gfe.pctrank('volume').values
+        gfe = GroupOpEngineer(df, 'ticker')
+        df['pctrank_openadj'] = gfe.cs_pctrank('openadj').values
+        df['pctrank_volume'] = gfe.cs_pctrank('volume').values
 
         tickers = df.ticker.unique()
         corr_stack = []
@@ -142,16 +142,16 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         Formula: (-1 * Ts_Rank(rank(low), 9))
         :param n_tsrank: rolling window for tsrank
-        :param inplace: apply to dataframe attr
-        :return: alpha4
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
         """
 
         df = self.df.copy()
 
-        gfe = GroupFactorEngineer(df, 'ticker')
-        df['pctrank_lowadj'] = gfe.pctrank('lowadj').values
+        gfe = GroupOpEngineer(df, 'ticker')
+        df['pctrank_lowadj'] = gfe.cs_pctrank('lowadj').values
         gfe.set_df(df)
-        df['tsrank_rank_lowadj'] = gfe.roll_tsrank('pctrank_lowadj', n_tsrank).values
+        df['tsrank_rank_lowadj'] = gfe.ts_rank('pctrank_lowadj', n_tsrank).values
 
         alpha_values = -1 * df['tsrank_rank_lowadj']
 
@@ -169,8 +169,8 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         Formula: (-1 * correlation(open, volume, 10))
         :param n_corr: window for correlation
-        :param inplace: apply to dataframe attr
-        :return:
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
         """
 
         df = self.df.copy()
