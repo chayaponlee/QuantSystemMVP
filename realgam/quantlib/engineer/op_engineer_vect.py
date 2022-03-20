@@ -12,7 +12,7 @@ class OpEngineer(BaseEngineer):
 
     def __init__(self, financial_df: pd.DataFrame):
         # we are actually sorting our dataframe reference, if we wish to not manipulate out input, do copy instead
-        financial_df.sort_values('date', inplace=True)
+        financial_df.sort_values(['ticker','date'], inplace=True)
         super().__init__(financial_df)
 
     @property
@@ -24,7 +24,7 @@ class OpEngineer(BaseEngineer):
         financial_df.sort_values('date', inplace=True)
         super().set_df(financial_df)
 
-    def ts_ret(self, price_col: str, inplace: bool = False):
+    def ts_ret(self, col: str, inplace: bool = False):
         """
         Calculate daily return or t-1 return given a price column
         :param price_col:prices
@@ -33,14 +33,15 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.df[price_col].pct_change()
+        price = self.df[col].unstack('ticker')
+        eng_values = price.pct_change().stack(dropna=False).swaplevel()
 
         if inplace:
-            self.df[f'ts_ret_{price_col}'] = eng_values.values
+            self.df[f'ts_ret_{col}'] = eng_values
         else:
             return eng_values
 
-    def ts_retn(self, price_col: str, n: int, inplace: bool = False):
+    def ts_retn(self, col: str, n: int, inplace: bool = False):
         """
         Calculate return for t-n given price column
         :param price_col: prices
@@ -50,14 +51,15 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.df[price_col].pct_change(n)
+        price = self.df[col].unstack('ticker')
+        eng_values = price.pct_change(n).stack(dropna=False).swaplevel()
 
         if inplace:
-            self.df[f'ts_retn{n}_{price_col}'] = eng_values.values
+            self.df[f'ts_retn{n}_{col}'] = eng_values
         else:
             return eng_values
 
-    def ts_std(self, price_col: str, n: int, inplace: bool = False):
+    def ts_std(self, col: str, n: int, inplace: bool = False):
         """
         Rolling volatility of prices
         :param price_col: prices
@@ -67,10 +69,11 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.ts_ret(price_col).rolling(n).std()
+        price = self.df[col].unstack('ticker')
+        eng_values = price.rolling(n).std().stack(dropna=False).swaplevel()
 
         if inplace:
-            self.df[f'ts_std{n}_{price_col}'] = eng_values.values
+            self.df[f'ts_std{n}_{col}'] = eng_values
         else:
             return eng_values
 
@@ -84,10 +87,11 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.df[col].shift(n)
+        unstacked = self.df[col].unstack('ticker')
+        eng_values = unstacked.shift(n).stack(dropna=False).swaplevel()
 
         if inplace:
-            self.df[f'ts_lag{n}_{col}'] = eng_values.values
+            self.df[f'ts_lag{n}_{col}'] = eng_values
         else:
             return eng_values
 
@@ -101,10 +105,11 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.df[col].rolling(n).sum()
+        unstacked = self.df[col].unstack('ticker')
+        eng_values = unstacked.rolling(n).sum().stack(dropna=False).swaplevel()
 
         if inplace:
-            self.df[f'ts_sum{n}_{col}'] = eng_values.values
+            self.df[f'ts_sum{n}_{col}'] = eng_values
         else:
             return eng_values
 
@@ -118,10 +123,11 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.df[col].rolling(n).apply(np.prod, engine='cython', raw=True)
+        unstacked = self.df[col].unstack('ticker')
+        eng_values = unstacked.shift(n).rolling(n).apply(np.prod, engine='cython', raw=True).stack(dropna=False).swaplevel()
 
         if inplace:
-            self.df[f'ts_product{n}_{col}'] = eng_values.values
+            self.df[f'ts_product{n}_{col}'] = eng_values
         else:
             return eng_values
 
@@ -135,10 +141,11 @@ class OpEngineer(BaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        eng_values = self.df[col].diff(n)
+        unstacked = self.df[col].unstack('ticker')
+        eng_values = unstacked.diff(n).stack().swaplevel()
 
         if inplace:
-            self.df[f'ts_delta{n}_{col}'] = eng_values.values
+            self.df[f'ts_delta{n}_{col}'] = eng_values
         else:
             return eng_values
 

@@ -37,7 +37,7 @@ class AlphaEngineer(GroupBaseEngineer):
         financial_df.sort_values(sort_cols, inplace=True)
         super().set_df(financial_df)
 
-    def alpha1(self, n_ts_arg_max: int = 5, n_std: int = 20, inplace: bool = False) -> Union[None, pd.Series]:
+    def alpha1(self, n_ts_arg_max: int = 5, n_std: int = 20, inplace: bool = False):
         """
         Runtime: 58 sec
         Formula: (rank(Ts_ArgMax(SignedPower(((returns < 0) ? stddev(returns, n_std) : close), 2.), n_ts_arg_max)) - 0.5)
@@ -46,29 +46,30 @@ class AlphaEngineer(GroupBaseEngineer):
         :param inplace: if True, add engineered column to dataframe attr
         :return: if inplace == False, return pd.Series
         """
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
 
-        df = self.df.copy()
+        df = self.df.copy()[['closeadj']]
+        goe = GroupOpEngineer(df, 'ticker')
+        df['ts_ret_closeadj'] = goe.ts_ret('closeadj').values
+        df[f'ts_std{n_std}_closeadj'] = goe.ts_std('closeadj', n_std).values
+        # here the closeadj column will be replaced by the conditional values
+        df.loc[df['ts_ret_closeadj'] < 0, 'closeadj'] = df['ts_std20_closeadj']
+        df.loc[df['ts_ret_closeadj'].isnull() | df['ts_std20_closeadj'].isnull(), 'closeadj'] = np.nan
+        df['closeadj'] = np.power(df.closeadj, 2)
 
-        temp_gfe = GroupOpEngineer(df, self.groupby_col)
-        df['ret'] = temp_gfe.ts_ret('closeadj').values
-        df[f'retvol{n_std}'] = temp_gfe.ts_std('closeadj', 20).values
+        goe.set_df(df)
+        df[f'ts_argmax{n_ts_arg_max}_closeadj'] = goe.ts_argmax('closeadj', n_ts_arg_max).values
 
-        df['closeadj_sqr'] = df.closeadj ** 2
-        df[f'retvol{n_std}_sqr'] = df[f'retvol{n_std}'] ** 2
-
-        temp_gfe.set_df(df)
-        df['closeadj_argmax'] = temp_gfe.ts_argmax('closeadj_sqr', n_ts_arg_max).values
-
-        df[f'retvol{n_std}_argmax'] = temp_gfe.ts_argmax(f'retvol{n_std}_sqr', n_ts_arg_max).values
-
-        # + 1 so no 0 indices
-        df['tsargmax_withcond'] = np.where(df.ret < 0, df[f'retvol{n_std}_argmax'], df.closeadj_argmax) + 1
-
-        df.loc[df.closeadj_argmax.isnull() | df[f'retvol{n_std}_argmax'].isnull(), 'tsargmax_withcond'] = np.nan
-
-        # since tsargmax will be 1 to n_ts_arg_max, so the way we rank it will be based on ratios
-        # which is the same as ranking the whole universe (values are still integers in range of 1 to n_ts_arg_max)
-        alpha_values = df.tsargmax_withcond / n_ts_arg_max
+        # here is where i'm in doubt, since we have only 5 unique values from ts_argmax (1-5) the ranking method
+        # will be questionable. ideally since there's only 5 unique values normal rank would yield the same value
+        # since the enitre universe at one date would have a value between 1-5. so i suggest using pct rank, since
+        # the value will be ranked by percentile which takes into account the frequency of each value occurring in
+        # the entire universe
+        goe.set_df(df)
+        df[f'cs_pctrank_ts_argmax{n_ts_arg_max}_closeadj'] = goe.cs_pctrank(f'ts_argmax{n_ts_arg_max}_closeadj')
+        # the minus 0.5 i'm not really sure why it's there
+        alpha_values = df[f'cs_pctrank_ts_argmax{n_ts_arg_max}_closeadj'] - 0.5
 
         if inplace:
             self.df['alpha1'] = alpha_values.values
@@ -84,7 +85,8 @@ class AlphaEngineer(GroupBaseEngineer):
         :param inplace: if True, add engineered column to dataframe attr
         :return: if inplace == False, return pd.Series
         """
-
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         df = self.df.copy()
 
         df['logvolume'] = np.log(df.volume)
@@ -118,6 +120,8 @@ class AlphaEngineer(GroupBaseEngineer):
         :param inplace: if True, add engineered column to dataframe attr
         :return: if inplace == False, return pd.Series
         """
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         df = self.df.copy()
 
         gfe = GroupOpEngineer(df, 'ticker')
@@ -145,7 +149,8 @@ class AlphaEngineer(GroupBaseEngineer):
         :param inplace: if True, add engineered column to dataframe attr
         :return: if inplace == False, return pd.Series
         """
-
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         df = self.df.copy()
 
         gfe = GroupOpEngineer(df, 'ticker')
@@ -172,7 +177,8 @@ class AlphaEngineer(GroupBaseEngineer):
         :param inplace: if True, add engineered column to dataframe attr
         :return: if inplace == False, return pd.Series
         """
-
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         df = self.df.copy()
 
         tickers = df.ticker.unique()

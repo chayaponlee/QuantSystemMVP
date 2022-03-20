@@ -161,6 +161,7 @@ def retrieve_historical_stocks(start_date: str = '2012-01-01') -> pd.DataFrame:
 
 def update_historical_data(existing_hist: pd.DataFrame) -> pd.DataFrame:
     logger.info("Updating Data")
+    existing_hist = existing_hist.reset_index().set_index('date')
     latest_data_date = existing_hist.index.max()
     next_avai_date = latest_data_date + relativedelta(days=1)
 
@@ -170,7 +171,7 @@ def update_historical_data(existing_hist: pd.DataFrame) -> pd.DataFrame:
     if new_hist.shape[0] == 0:
         raise Exception("No New Data Available, Data Update Process Stopped")
     new_stacked_hist = pd.concat([existing_hist, new_hist])
-    new_stacked_hist = new_stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index('date')
+    new_stacked_hist = new_stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index(['ticker', 'date'])
 
     return new_stacked_hist
 
