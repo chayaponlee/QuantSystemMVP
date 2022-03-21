@@ -2,44 +2,39 @@ import pandas as pd
 import numpy as np
 from typing import List, Union
 from realgam.quantlib.engineer.interface import BaseEngineer, GroupBaseEngineer
-from realgam.quantlib.engineer.op_engineer import OpEngineer, GroupOpEngineer
+from realgam.quantlib.engineer.op_engineer_vect import OpEngineerV
+import time
 
-
-class AlphaEngineer(GroupBaseEngineer):
+class AlphaEngineerV(BaseEngineer):
     """
     Class for engineering Alpha formulas, apply at groupby level tickers
     """
 
-    def __init__(self, financial_df: pd.DataFrame, groupby_col: Union[str, List]):
-        if isinstance(groupby_col, str):
-            sort_cols = [groupby_col, 'date']
-        else:
-            sort_cols = groupby_col + ['date']
-        # we are actually sorting our dataframe reference, if we wish to not manipulate out input, do copy instead
-        financial_df.sort_values(sort_cols, inplace=True)
-        super().__init__(financial_df, groupby_col)
+    def __init__(self, financial_df: pd.DataFrame):
+        if list(financial_df.index.names) != ['ticker', 'date']:
+            raise Exception("OpEngineerV object requires input dataframe to have multiindex strictly in "
+                            "the following hierarchy: ['ticker', 'date']")
+
+        # ensure that the reference dataframe also is sorted incase we want to do
+        # financial_df['alpha1'] = aev.alpha1(5, 20)
+        financial_df.sort_values(['ticker', 'date'], inplace=True)
+        super().__init__(financial_df)
 
     @property
     def df(self):
         return super().df()
 
-    @property
-    def groupby_col(self):
-        return super().groupby_col()
-
     def set_df(self, financial_df: pd.DataFrame):
-        groupby_col = self.groupby_col
-        if isinstance(groupby_col, str):
-            sort_cols = [groupby_col, 'date']
-        else:
-            sort_cols = groupby_col.append('date')
-        # we are actually sorting our dataframe reference, if we wish to not manipulate out input, do copy instead
-        financial_df.sort_values(sort_cols, inplace=True)
-        super().set_df(financial_df)
+        if list(financial_df.index.names) != ['ticker', 'date']:
+            raise Exception("OpEngineerV object requires input dataframe to have multiindex strictly in "
+                            "the following hierarchy: ['ticker', 'date']")
+
+        financial_df.sort_values(['ticker', 'date'], inplace=True)
+        super().__init__(financial_df)
 
     def alpha1(self, n_ts_arg_max: int = 5, n_std: int = 20, inplace: bool = False):
         """
-        Runtime: 58 sec
+        Runtime: ~4 min
         Formula: (rank(Ts_ArgMax(SignedPower(((returns < 0) ? stddev(returns, n_std) : close), 2.), n_ts_arg_max)) - 0.5)
         :param n_std: lookback range for calculating return vol
         :param n_ts_arg_max: lookback range for calculating ts argmax
@@ -50,35 +45,25 @@ class AlphaEngineer(GroupBaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
 
         df = self.df.copy()[['closeadj']]
-        goe = GroupOpEngineer(df, 'ticker')
-        df['ts_ret_closeadj'] = goe.ts_ret('closeadj').values
-        df[f'ts_std{n_std}_closeadj'] = goe.ts_std('closeadj', n_std).values
-        # here the closeadj column will be replaced by the conditional values
-        df.loc[df['ts_ret_closeadj'] < 0, 'closeadj'] = df['ts_std20_closeadj']
-        df.loc[df['ts_ret_closeadj'].isnull() | df['ts_std20_closeadj'].isnull(), 'closeadj'] = np.nan
-        df['closeadj'] = np.power(df.closeadj, 2)
+        close = df['closeadj'].unstack('ticker')
+        oe = OpEngineerV(df)
+        returns = oe.ts_ret('closeadj', wide=True)
 
-        goe.set_df(df)
-        df[f'ts_argmax{n_ts_arg_max}_closeadj'] = goe.ts_argmax('closeadj', n_ts_arg_max).values
-
-        # here is where i'm in doubt, since we have only 5 unique values from ts_argmax (1-5) the ranking method
-        # will be questionable. ideally since there's only 5 unique values normal rank would yield the same value
-        # since the enitre universe at one date would have a value between 1-5. so i suggest using pct rank, since
-        # the value will be ranked by percentile which takes into account the frequency of each value occurring in
-        # the entire universe
-        goe.set_df(df)
-        df[f'cs_pctrank_ts_argmax{n_ts_arg_max}_closeadj'] = goe.cs_pctrank(f'ts_argmax{n_ts_arg_max}_closeadj')
-        # the minus 0.5 i'm not really sure why it's there
-        alpha_values = df[f'cs_pctrank_ts_argmax{n_ts_arg_max}_closeadj'] - 0.5
+        close[returns < 0] = oe.ts_std('closeadj', 20, wide=True)
+        df['closeadj_square'] = np.power(close, 2).stack().swaplevel()
+        oe.set_df(df)
+        oe.ts_argmax('closeadj_square', n_ts_arg_max, inplace=True)
+        alpha_values = oe.cs_pctrank(f'ts_argmax{n_ts_arg_max}_closeadj_square', wide=True).mul(
+            -.5).stack().swaplevel()
 
         if inplace:
-            self.df['alpha1'] = alpha_values.values
+            self.df['alpha1'] = alpha_values
         else:
             return alpha_values
 
     def alpha2(self, n_delta: int = 2, n_corr: int = 6, inplace: bool = False) -> Union[None, pd.Series]:
         """
-        Runtime: 78 min
+        Runtime: 5 min 14 sec
         Formula: (-1 * correlation(rank(delta(log(volume), 2)), rank(((close - open) / open)), 6))
         :param n_delta: range for calculating delta volume`
         :param n_corr: correlation lookback window
@@ -87,29 +72,21 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        df = self.df.copy()
 
-        df['logvolume'] = np.log(df.volume)
-        gfe = GroupOpEngineer(df, 'ticker')
-        df[f'delta_logvolume_{n_delta}'] = gfe.ts_delta('logvolume', 2).values
-        df['ret_intraday'] = gfe.pct_change_cols('closeadj', 'openadj').values
-        gfe.set_df(df)
-        df[f'pctrank_delta_logvolume_{n_delta}'] = gfe.cs_pctrank(f'delta_logvolume_{n_delta}').values
-        df[f'pctrank_ret_intraday'] = gfe.cs_pctrank('ret_intraday').values
+        df = self.df.copy()[['closeadj', 'openadj', 'volume']]
+        df['log_volume'] = np.log(df.volume)
+        oe = OpEngineerV(df)
+        oe.ts_delta('log_volume', n_delta, inplace=True)
+        oe.pct_change_cols('closeadj', 'openadj', inplace=True)
+        oe.cs_pctrank(f'ts_delta{n_delta}_log_volume', inplace=True)
+        oe.cs_pctrank('pct_change_cols_closeadj_openadj', inplace=True)
 
-        tickers = df.ticker.unique()
-        corr_stack = []
-
-        for i, ticker in enumerate(tickers):
-            temp_hist = df[df.ticker == ticker]
-            corr_stack.append(temp_hist[f'pctrank_delta_logvolume_{n_delta}'].rolling(n_corr,
-                                                                                      ).corr(
-                temp_hist['pctrank_ret_intraday'], engine='cython', raw=True))
-
-        alpha_values = -1 * pd.concat(corr_stack)
+        alpha_values = -1 * oe.ts_corr(f'cs_pctrank_ts_delta{n_delta}_log_volume',
+                                       'cs_pctrank_pct_change_cols_closeadj_openadj',
+                                       n_corr).replace([-np.inf, np.inf], np.nan)
 
         if inplace:
-            self.df['alpha2'] = alpha_values.values
+            self.df['alpha2'] = alpha_values
         else:
             return alpha_values
 
@@ -122,23 +99,16 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        df = self.df.copy()
+        df = self.df.copy()[['openadj', 'volume']]
+        oe = OpEngineerV(df)
+        oe.cs_pctrank('openadj', inplace=True)
+        oe.cs_pctrank('volume', inplace=True)
 
-        gfe = GroupOpEngineer(df, 'ticker')
-        df['pctrank_openadj'] = gfe.cs_pctrank('openadj').values
-        df['pctrank_volume'] = gfe.cs_pctrank('volume').values
-
-        tickers = df.ticker.unique()
-        corr_stack = []
-        for i, ticker in enumerate(tickers):
-            temp_hist = df[df.ticker == ticker]
-            corr_stack.append(temp_hist['pctrank_openadj'].rolling(n_corr).corr(
-                temp_hist['pctrank_volume'], engine='cython', raw=True))
-
-        alpha_values = -1 * pd.concat(corr_stack)
+        alpha_values = -1 * oe.ts_corr('cs_pctrank_openadj', 'cs_pctrank_volume',
+                                       n_corr).replace([-np.inf, np.inf], np.nan)
 
         if inplace:
-            self.df['alpha3'] = alpha_values.values
+            self.df['alpha3'] = alpha_values
         else:
             return alpha_values
 
@@ -151,24 +121,24 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        df = self.df.copy()
+        df = self.df.copy()[['lowadj']]
 
-        gfe = GroupOpEngineer(df, 'ticker')
-        df['pctrank_lowadj'] = gfe.cs_pctrank('lowadj').values
-        gfe.set_df(df)
-        df['tsrank_rank_lowadj'] = gfe.ts_rank('pctrank_lowadj', n_tsrank).values
+        oe = OpEngineerV(df)
+        oe.cs_pctrank('lowadj', inplace=True)
 
-        alpha_values = -1 * df['tsrank_rank_lowadj']
+        alpha_values = -1 * oe.ts_rank('cs_pctrank_lowadj', n_tsrank)
 
         if inplace:
-            self.df['alpha4'] = alpha_values.values
+            self.df['alpha4'] = alpha_values
         else:
             return alpha_values
 
-    # def alpha5(self, ):
-    """
-    Uses vwap, will skip for now since unsure how to calculate vwap
-    """
+    def alpha5(self, ):
+        """
+        Uses vwap, will skip for now since unsure how to calculate vwap
+        (rank((open - (sum(vwap, 10) / 10))) * (-1 * abs(rank((close - vwap)))))
+        """
+
 
     def alpha6(self, n_corr: int = 10, inplace: bool = True) -> Union[None, pd.Series]:
         """
@@ -179,19 +149,13 @@ class AlphaEngineer(GroupBaseEngineer):
         """
         if not isinstance(inplace, bool):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
-        df = self.df.copy()
+        df = self.df.copy()[['openadj', 'volume']]
 
-        tickers = df.ticker.unique()
-        corr_stack = []
-        for i, ticker in enumerate(tickers):
-            temp_hist = df[df.ticker == ticker]
-            corr_stack.append(temp_hist['openadj'].rolling(n_corr).corr(
-                temp_hist['volume'], engine='cython', raw=True))
-
-        alpha_values = -1 * pd.concat(corr_stack)
+        oe = OpEngineerV(df)
+        alpha_values = -1 * oe.ts_corr('openadj', 'volume', n_corr)
 
         if inplace:
-            self.df['alpha6'] = alpha_values.values
+            self.df['alpha6'] = alpha_values
         else:
             return alpha_values
 
