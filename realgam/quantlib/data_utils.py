@@ -154,7 +154,7 @@ def retrieve_historical_stocks(start_date: str = '2012-01-01') -> pd.DataFrame:
 
     # Concat into one dataframe
     stacked_hist = pd.concat(stacked_data)
-    stacked_hist = stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index('date')
+    stacked_hist = stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index(['ticker', 'date'])
 
     return stacked_hist
 
