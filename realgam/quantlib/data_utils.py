@@ -165,7 +165,7 @@ def update_historical_data(existing_hist: pd.DataFrame) -> pd.DataFrame:
     latest_data_date = existing_hist.index.max()
     next_avai_date = latest_data_date + relativedelta(days=1)
 
-    new_hist = retrieve_historical_stocks(next_avai_date.strftime("%Y-%m-%d"))
+    new_hist = retrieve_historical_stocks(next_avai_date.strftime("%Y-%m-%d")).reset_index().set_index('date')
 
     # if no new data, exit the code
     if new_hist.shape[0] == 0:
