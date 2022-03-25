@@ -3,7 +3,9 @@ import numpy as np
 from typing import List, Union
 from realgam.quantlib.engineer.interface import BaseEngineer, GroupBaseEngineer
 from realgam.quantlib.engineer.op_engineer_vect import OpEngineerV
+from realgam.quantlib.engineer.ta_engineer_vect import TalibEngineerV
 import time
+
 
 class AlphaEngineerV(BaseEngineer):
     """
@@ -49,7 +51,7 @@ class AlphaEngineerV(BaseEngineer):
         oe = OpEngineerV(df)
         returns = oe.ts_ret('closeadj', wide=True)
 
-        close[returns < 0] = oe.ts_std('closeadj', 20, wide=True)
+        close[returns < 0] = oe.ts_std('closeadj', n_std, wide=True)
         df['closeadj_square'] = np.power(close, 2).stack().swaplevel()
         oe.set_df(df)
         oe.ts_argmax('closeadj_square', n_ts_arg_max, inplace=True)
@@ -61,7 +63,7 @@ class AlphaEngineerV(BaseEngineer):
         else:
             return alpha_values
 
-    def alpha2(self, n_delta: int = 2, n_corr: int = 6, inplace: bool = False) -> Union[None, pd.Series]:
+    def alpha2(self, n_delta: int = 2, n_corr: int = 6, inplace: bool = False):
         """
         Runtime: 5 min 14 sec
         Formula: (-1 * correlation(rank(delta(log(volume), 2)), rank(((close - open) / open)), 6))
@@ -90,7 +92,7 @@ class AlphaEngineerV(BaseEngineer):
         else:
             return alpha_values
 
-    def alpha3(self, n_corr: int = 10, inplace: bool = False) -> Union[None, pd.Series]:
+    def alpha3(self, n_corr: int = 10, inplace: bool = False):
         """
         Formula: (-1 * correlation(rank(open), rank(volume), 10))
         :param n_corr: correlation lookback window
@@ -112,7 +114,7 @@ class AlphaEngineerV(BaseEngineer):
         else:
             return alpha_values
 
-    def alpha4(self, n_tsrank: int = 9, inplace: bool = True) -> Union[None, pd.Series]:
+    def alpha4(self, n_tsrank: int = 9, inplace: bool = False):
         """
         Formula: (-1 * Ts_Rank(rank(low), 9))
         :param n_tsrank: rolling window for tsrank
@@ -133,14 +135,35 @@ class AlphaEngineerV(BaseEngineer):
         else:
             return alpha_values
 
-    def alpha5(self, ):
+    def alpha5(self, n_sum: int = 10, inplace: bool = False):
         """
-        Uses vwap, will skip for now since unsure how to calculate vwap
-        (rank((open - (sum(vwap, 10) / 10))) * (-1 * abs(rank((close - vwap)))))
+        Formula: (rank((open - ts_mean(vwap, 10))) * (-1 * abs(rank((close - vwap)))))
+        :param n_sum: window
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
         """
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
+        df = self.df.copy()
+        open = df['openadj'].unstack('ticker')
 
+        tae = TalibEngineerV(df)
+        df['vwap'] = tae.daily_vwap()
 
-    def alpha6(self, n_corr: int = 10, inplace: bool = True) -> Union[None, pd.Series]:
+        oe = OpEngineerV(df)
+        # term1 = open - (sum(vwap, 10) / 10
+        df['term1'] = (open - oe.ts_sum('vwap', n_sum, wide=True).divide(n_sum)).stack().swaplevel()
+        df['close-vwap'] = df['closeadj'] - df['vwap']
+        oe.set_df(df)
+        alpha_values = oe.cs_pctrank('term1', wide=True).mul(
+            oe.cs_pctrank('close-vwap', wide=True).abs().mul(-1)).stack().swaplevel()
+
+        if inplace:
+            self.df['alpha5'] = alpha_values
+        else:
+            return alpha_values
+
+    def alpha6(self, n_corr: int = 10, inplace: bool = False) -> Union[None, pd.Series]:
         """
         Formula: (-1 * correlation(open, volume, 10))
         :param n_corr: window for correlation
@@ -159,4 +182,45 @@ class AlphaEngineerV(BaseEngineer):
         else:
             return alpha_values
 
-    # def alpha7(self, ):
+    def alpha7(self, n_adv: int = 20, n_delta: int = 7, n_ts_rank: int = 60, inplace: bool = False):
+        """
+        (adv20 < volume)
+        ? ((-ts_rank(abs(ts_delta(close, 7)), 60)) * sign(ts_delta(close, 7)))
+        : -1
+        :param n_adv:
+        :param n_delta:
+        :param n_ts_rank:
+        :return:
+        """
+        # (adv20 < volume)
+        # ? ((-ts_rank(abs(ts_delta(close, 7)), 60)) * sign(ts_delta(close, 7)))
+        # : -1
+
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
+
+        df = self.df.copy()[['closeadj', 'volume']]
+        # df['alpha'] = -1
+
+        tae = TalibEngineerV(df)
+        adv = tae.adv(n_adv, wide=True)
+        volume = df['volume'].unstack('ticker')
+
+        oe = OpEngineerV(df)
+
+        df[f'ts_delta{n_delta}_closeadj'] = oe.ts_delta('closeadj', n_delta)
+
+        df[f'ts_delta{n_delta}_closeadj_abs'] = df[f'ts_delta{n_delta}_closeadj'].abs()
+
+        oe.set_df(df)
+
+        # term_2 = ts_delta(close, 7)
+        term_2 = df[f'ts_delta{n_delta}_closeadj'].unstack('ticker')
+
+        alpha_values = -1 * oe.ts_rank(f'ts_delta{n_delta}_closeadj_abs', n_ts_rank, wide=True).mul(
+            np.sign(term_2)).where(adv < volume).stack().swaplevel()
+
+        if inplace:
+            self.df['alpha7'] = alpha_values
+        else:
+            return alpha_values
