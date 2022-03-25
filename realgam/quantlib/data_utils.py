@@ -27,7 +27,6 @@ should be the same
 def format_date(dates) -> datetime.date:
     """
     Standardizes the date value in a particular date format yy-mm-dd
-
     :param dates: str, datetime object
     :return: datetime object
     """
@@ -39,10 +38,8 @@ def format_date(dates) -> datetime.date:
 
 """
 Retrieve American stock data
-
 As of 2022-02-09, we are currently subscribed to 10 years of historical data so we would have atmost data since 
 2012.
-
 Configuring nasdaqdatalink API: depending on your directory, you have to enter the API key in to the config file
 For MacAir: you can configure the file at 
 "/opt/homebrew/Caskroom/miniforge/base/envs/quant/lib/python3.9/site-packages/nasdaqdatalink/api_config.py"
@@ -52,25 +49,19 @@ For MacAir: you can configure the file at
 def retrieve_historical_stocks(start_date: str = '2012-01-01') -> pd.DataFrame:
     """
     Retrieve historical stocks via Nasdaq Data Link based on American Stocks
-
     Exchanges: ['NYSE', 'NASDAQ', 'NYSEMKT']
-
     Type of Stocks: ['Domestic Common Stock', 'ADR Common Stock',
                   'Domestic Common Stock Primary Class', 'Canadian Common Stock',
                   'ADR Common Stock Primary Class',
                   'Canadian Common Stock Primary Class',
                   'ADR Common Stock Secondary Class',
                   'Domestic Common Stock Secondary Class']
-
     By default, data will be save as a tuple format via pickle I/O functions
     Tuple Format: (data_long_format, data_wide_format, available tickers)
-
     data_long_format columns: ['ticker', 'date', 'open', 'high', 'low', 'close', 'openadj', 'highadj',
                                     'lowadj', 'closeadj', 'volume']]
-
     data_wide_format columns: ['date', 'open', 'high', 'low', 'close',
                             'openadj', 'highadj', 'lowadj', 'closeadj', 'volume']
-
     :return:  tuple(pd.DataFrame, pd.DataFrame, list, list)
     """
 
@@ -195,7 +186,6 @@ def process_historical_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
 def extend_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
     """
     Extends the historical data (wide format) to have other stats like returns, vol, and is_active values
-
     :param traded: list
     :param df: pd.DataFrame
     :return: pd.DataFrame
@@ -253,3 +243,4 @@ def extend_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
     historical_data.fillna(method="bfill", inplace=True)
 
     return historical_data, available_tickers
+
