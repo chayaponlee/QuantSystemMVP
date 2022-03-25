@@ -6,3 +6,4 @@
 2. See set_up.py for installing modules
 3. Create a Data/ directory in the project dir
 4. Create an environment variable 'QuantSystemMVP': export QuantSystemMVP='path to project dir'
+5. Edit config file for nasdaq_data_link module to change hte API key
