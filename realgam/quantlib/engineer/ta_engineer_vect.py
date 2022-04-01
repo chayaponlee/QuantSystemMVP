@@ -5,6 +5,8 @@ from realgam.quantlib.engineer.interface import BaseEngineer, GroupBaseEngineer
 import talib
 from joblib import Parallel, delayed
 
+PRIMARY_KEY = 'permaticker'
+
 
 class TalibEngineerV(BaseEngineer):
     """
@@ -14,13 +16,13 @@ class TalibEngineerV(BaseEngineer):
     """
 
     def __init__(self, financial_df: pd.DataFrame):
-        if list(financial_df.index.names) != ['ticker', 'date']:
+        if list(financial_df.index.names) != [PRIMARY_KEY, 'date']:
             raise Exception("OpEngineerV object requires input dataframe to have multiindex strictly in "
-                            "the following hierarchy: ['ticker', 'date']")
+                            "the following hierarchy: [PRIMARY_KEY, 'date']")
 
         # ensure that the reference dataframe also is sorted incase we want to do
         # financial_df['alpha1'] = aev.alpha1(5, 20)
-        financial_df.sort_values(['ticker', 'date'], inplace=True)
+        financial_df.sort_values([PRIMARY_KEY, 'date'], inplace=True)
         super().__init__(financial_df)
 
     @property
@@ -28,11 +30,11 @@ class TalibEngineerV(BaseEngineer):
         return super().df()
 
     def set_df(self, financial_df: pd.DataFrame):
-        if list(financial_df.index.names) != ['ticker', 'date']:
+        if list(financial_df.index.names) != [PRIMARY_KEY, 'date']:
             raise Exception("OpEngineerV object requires input dataframe to have multiindex strictly in "
-                            "the following hierarchy: ['ticker', 'date']")
+                            "the following hierarchy: [PRIMARY_KEY, 'date']")
 
-        financial_df.sort_values(['ticker', 'date'], inplace=True)
+        financial_df.sort_values([PRIMARY_KEY, 'date'], inplace=True)
         super().__init__(financial_df)
 
     def daily_vwap(self, adjusted: bool = True, wide: bool = False, inplace: bool = False):
@@ -50,10 +52,10 @@ class TalibEngineerV(BaseEngineer):
         else:
             adj_str = ''
 
-        open = self.df[f'open{adj_str}'].unstack('ticker')
-        high = self.df[f'high{adj_str}'].unstack('ticker')
-        low = self.df[f'low{adj_str}'].unstack('ticker')
-        close = self.df[f'close{adj_str}'].unstack('ticker')
+        open = self.df[f'open{adj_str}'].unstack(PRIMARY_KEY)
+        high = self.df[f'high{adj_str}'].unstack(PRIMARY_KEY)
+        low = self.df[f'low{adj_str}'].unstack(PRIMARY_KEY)
+        close = self.df[f'close{adj_str}'].unstack(PRIMARY_KEY)
 
         ta_values = (open + high + low + close).divide(4)
 
@@ -74,7 +76,7 @@ class TalibEngineerV(BaseEngineer):
         :return: if inplace == False, return pd.Series
         """
 
-        volume = self.df['volume'].unstack('ticker')
+        volume = self.df['volume'].unstack(PRIMARY_KEY)
         ta_values = volume.apply(lambda x: talib.MA(x, timeperiod=n))
 
         if inplace:

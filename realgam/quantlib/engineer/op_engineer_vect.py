@@ -5,6 +5,8 @@ from realgam.quantlib.engineer.interface import BaseEngineer, GroupBaseEngineer
 from realgam.quantlib.engineer.utils import rank_last_value, rolling_rank
 from joblib import Parallel, delayed
 
+PRIMARY_KEY = 'permaticker'
+
 
 class OpEngineerV(BaseEngineer):
     """
@@ -14,13 +16,13 @@ class OpEngineerV(BaseEngineer):
 
     def __init__(self, financial_df: pd.DataFrame):
         # we are actually sorting our dataframe reference, if we wish to not manipulate out input, do copy instead
-        if list(financial_df.index.names) != ['ticker', 'date']:
+        if list(financial_df.index.names) != [PRIMARY_KEY, 'date']:
             raise Exception("OpEngineerV object requires input dataframe to have multiindex strictly in "
-                            "the following hierarchy: ['ticker', 'date']")
+                            "the following hierarchy: [PRIMARY_KEY, 'date']")
 
         # ensure that the reference dataframe also is sorted incase we want to do
         # financial_df['alpha1'] = aev.alpha1(5, 20)
-        financial_df.sort_values(['ticker', 'date'], inplace=True)
+        financial_df.sort_values([PRIMARY_KEY, 'date'], inplace=True)
         super().__init__(financial_df)
 
     @property
@@ -28,12 +30,37 @@ class OpEngineerV(BaseEngineer):
         return super().df()
 
     def set_df(self, financial_df: pd.DataFrame):
-        if list(financial_df.index.names) != ['ticker', 'date']:
+        if list(financial_df.index.names) != [PRIMARY_KEY, 'date']:
             raise Exception("OpEngineerV object requires input dataframe to have multiindex strictly in "
-                            "the following hierarchy: ['ticker', 'date']")
+                            "the following hierarchy: [PRIMARY_KEY, 'date']")
 
-        financial_df.sort_values(['ticker', 'date'], inplace=True)
+        financial_df.sort_values([PRIMARY_KEY, 'date'], inplace=True)
         super().__init__(financial_df)
+
+    def ts_lag(self, col: str, n: int = 1, wide: bool = False, inplace: bool = False):
+        """
+        Shifts the desired data column
+        :param col: desired column
+        :param n: window
+        :param wide: if wide return a wide dataframe
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
+        """
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
+        if not isinstance(wide, bool):
+            raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
+
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
+        eng_values = unstacked.shift(n)
+
+        if inplace:
+            self.df[f'ts_lag{n}_{col}'] = eng_values.stack().swaplevel()
+        else:
+            if wide:
+                return eng_values
+            else:
+                return eng_values.stack().swaplevel()
 
     def ts_ret(self, col: str, wide: bool = False, inplace: bool = False):
         """
@@ -47,7 +74,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        price = self.df[col].unstack('ticker')
+        price = self.df[col].unstack(PRIMARY_KEY)
         eng_values = price.pct_change()
 
         if inplace:
@@ -71,7 +98,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        price = self.df[col].unstack('ticker')
+        price = self.df[col].unstack(PRIMARY_KEY)
         eng_values = price.pct_change(n)
 
         if inplace:
@@ -95,7 +122,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        price = self.df[col].unstack('ticker')
+        price = self.df[col].unstack(PRIMARY_KEY)
         eng_values = price.rolling(n).std()
 
         if inplace:
@@ -119,7 +146,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.shift(n)
 
         if inplace:
@@ -143,7 +170,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.rolling(n).sum()
 
         if inplace:
@@ -168,9 +195,10 @@ class OpEngineerV(BaseEngineer):
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
 
-        def func(series): return series.rolling(n).apply(np.prod, engine='cython', raw=True)
+        def func(series):
+            return series.rolling(n).apply(np.prod, engine='cython', raw=True)
 
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = pd.concat(Parallel(n_jobs=-1)(delayed(func)(unstacked[col]) for col in unstacked), axis=1)
 
         # eng_values = unstacked.rolling(n).apply(np.prod, engine='cython', raw=True)
@@ -195,7 +223,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.diff(n)
 
         if inplace:
@@ -226,7 +254,7 @@ class OpEngineerV(BaseEngineer):
             self.df[f'pct_change_cols_{current_col}_{prev_col}'] = eng_values.values
         else:
             if wide:
-                return eng_values.unstack('ticker')
+                return eng_values.unstack(PRIMARY_KEY)
             else:
                 return eng_values
 
@@ -243,7 +271,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.rolling(n).max()
 
         if inplace:
@@ -267,7 +295,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.rolling(n).min()
 
         if inplace:
@@ -292,9 +320,10 @@ class OpEngineerV(BaseEngineer):
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
 
-        def func(series): return series.rolling(n).apply(np.argmax, engine='cython', raw=True).add(1)
+        def func(series):
+            return series.rolling(n).apply(np.argmax, engine='cython', raw=True).add(1)
 
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = pd.concat(Parallel(n_jobs=-1)(delayed(func)(unstacked[col]) for col in unstacked), axis=1)
         # eng_values = unstacked.rolling(n).apply(np.argmax, engine='cython', raw=True).add(1)
 
@@ -320,9 +349,10 @@ class OpEngineerV(BaseEngineer):
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
 
-        def func(series): return series.rolling(n).apply(np.argmin, engine='cython', raw=True).add(1)
+        def func(series):
+            return series.rolling(n).apply(np.argmin, engine='cython', raw=True).add(1)
 
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = pd.concat(Parallel(n_jobs=-1)(delayed(func)(unstacked[col]) for col in unstacked), axis=1)
         # eng_values = unstacked.rolling(n).apply(np.argmin, engine='cython', raw=True).add(1)
 
@@ -346,7 +376,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.rank(axis=1, **kwargs)
 
         if inplace:
@@ -369,7 +399,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = unstacked.rank(axis=1, pct=True, **kwargs)
 
         if inplace:
@@ -393,7 +423,7 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
         eng_values = pd.DataFrame(rolling_rank(unstacked, n), index=unstacked.index, columns=unstacked.columns)
         # eng_values = unstacked.rolling(n).apply(rank_last_value, raw=True)
 
@@ -418,8 +448,9 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked = self.df[col].unstack('ticker')
-        eng_values = pd.DataFrame(rolling_rank(unstacked, n, pct=True), index=unstacked.index, columns=unstacked.columns)
+        unstacked = self.df[col].unstack(PRIMARY_KEY)
+        eng_values = pd.DataFrame(rolling_rank(unstacked, n, pct=True), index=unstacked.index,
+                                  columns=unstacked.columns)
         # eng_values = unstacked.rolling(n).apply(rank_last_value, args=(2, True), raw=True)
 
         if inplace:
@@ -444,8 +475,8 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked1 = self.df[col1].unstack('ticker')
-        unstacked2 = self.df[col2].unstack('ticker')
+        unstacked1 = self.df[col1].unstack(PRIMARY_KEY)
+        unstacked2 = self.df[col2].unstack(PRIMARY_KEY)
         eng_values = unstacked1.rolling(n).corr(unstacked2)
 
         if inplace:
@@ -470,8 +501,8 @@ class OpEngineerV(BaseEngineer):
             raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
         if not isinstance(wide, bool):
             raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
-        unstacked1 = self.df[col1].unstack('ticker')
-        unstacked2 = self.df[col2].unstack('ticker')
+        unstacked1 = self.df[col1].unstack(PRIMARY_KEY)
+        unstacked2 = self.df[col2].unstack(PRIMARY_KEY)
         eng_values = unstacked1.rolling(n).cov(unstacked2)
 
         if inplace:
@@ -481,5 +512,3 @@ class OpEngineerV(BaseEngineer):
                 return eng_values
             else:
                 return eng_values.stack().swaplevel()
-
-
