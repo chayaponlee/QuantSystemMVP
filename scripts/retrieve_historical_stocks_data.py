@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
-SAVE_PATH = f'{PROJECT_PATH}/Data/stock_hist_perma.obj'
+SAVE_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist_perma.obj'
 
 if __name__ == '__main__':
     stocks_df = du.retrieve_historical_stocks('2012-01-01')

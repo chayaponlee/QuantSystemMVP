@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore")
 logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
-DATA_PATH = f'{PROJECT_PATH}/Data/stock_hist.obj'
+DATA_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist.obj'
 CONFIG_PATH = f'{PROJECT_PATH}/subsystems/lbmom/config.json'
 BD_PATH = f'{PROJECT_PATH}/Backtest_Data'
 

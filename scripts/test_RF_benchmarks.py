@@ -12,7 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 """
 Test1
-With alpha_pre_20220330.obj, it takes 45 minutes to run 
+With f_alpha_pre_20220330.obj, it takes 45 minutes to run 
 clf = RandomForestClassifier(n_estimators=100, class_weight='balanced_subsample', criterion='entropy', n_jobs=-1)
 scores = cross_validate(clf, X, y, cv=5, scoring=('accuracy', 'f1', 'precision', 'recall'), return_train_score=True)
 """
@@ -25,7 +25,7 @@ PROJECT_PATH = os.getenv('QuantSystemMVP')
 FEAT = [f'alpha{i + 1}' for i in range(6)]
 TARGET_COL = 'ret6_fwd'
 
-FEAT_PATH = f'{PROJECT_PATH}/Data/feature/alpha_pre_20220330.obj'
+FEAT_PATH = f'{PROJECT_PATH}/Data/feature/f_alpha_pre_20220330.obj'
 SAVE_PATH = f'{PROJECT_PATH}/Data/model_results/RF_score_test_20220330.obj'
 
 if __name__ == '__main__':

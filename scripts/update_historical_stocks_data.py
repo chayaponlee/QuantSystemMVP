@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
-DATA_PATH = f'{PROJECT_PATH}/Data/stock_hist_perma.obj'
-SAVE_PATH = f'{PROJECT_PATH}/Data/stock_hist_perma.obj'
+DATA_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist_perma.obj'
+SAVE_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist_perma.obj'
 
 if __name__ == '__main__':
 
