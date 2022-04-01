@@ -17,11 +17,13 @@ PROJECT_PATH = os.getenv('QuantSystemMVP')
 DATA_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist_perma.obj'
 SAVE_PATH = f'{PROJECT_PATH}/Data/engineered/e_alpha_20220401.obj'
 
+alpha_eng_index = [1, 2, 3, 4, 5, 6, 7]
+
 if __name__ == '__main__':
     logger.info('Loading data')
     stocks_df, _, _ = gu.load_file(DATA_PATH)
     stacked_hist = stocks_df.copy()
-    #
+
     # tickers = stacked_hist.index.get_level_values('permaticker').unique()[:200]
     # stacked_hist = stacked_hist[stacked_hist.index.isin(tickers, level='permaticker')]
 
@@ -31,7 +33,6 @@ if __name__ == '__main__':
 
         return getattr(ae, method_name)()
 
-    alpha_eng_index = [1, 2, 3, 4, 5, 6, 7]
     alpha_eng_names = [f'alpha{index}' for index in alpha_eng_index]
 
     logger.info('Begin')
@@ -50,6 +51,7 @@ if __name__ == '__main__':
     e_time_chunk = time.time()
     logger.info(f"Total time: {e_time_chunk - s_time_chunk} sec")
 
-    gu.save_file(SAVE_PATH, stacked_hist)
+    print(stacked_hist.columns)
+    # gu.save_file(SAVE_PATH, stacked_hist)
 
     logger.info(f"Alpha engineered data written to {SAVE_PATH}")
