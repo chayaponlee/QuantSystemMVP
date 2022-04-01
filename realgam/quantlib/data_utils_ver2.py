@@ -16,7 +16,7 @@ logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 NDL_CONFIG_PATH = f'{PROJECT_PATH}/realgam/quantlib/nasdaq_dl_config.json'
 NDL_CONFIG = json.load(open(NDL_CONFIG_PATH))
-
+PRIMARY_KEY = NDL_CONFIG['primary_key']
 """
 when obtaining data from numerous sources, we want to standardize communication units.
 in other words, we want object types to be the same. for instance, things like dataframe index 'type' or 'class'
@@ -55,11 +55,8 @@ def retrieve_historical_stocks(start_date: str = '2012-01-01') -> Tuple:
 
     Exchanges: ['NYSE', 'NASDAQ', 'NYSEMKT']
 
-    Type of Stocks: ['Domestic Common Stock', 'ADR Common Stock',
-                  'Domestic Common Stock Primary Class', 'Canadian Common Stock',
-                  'ADR Common Stock Primary Class',
-                  'Canadian Common Stock Primary Class',
-                  'ADR Common Stock Secondary Class',
+    Type of Stocks: ['Domestic Common Stock',
+                  'Domestic Common Stock Primary Class',
                   'Domestic Common Stock Secondary Class']
 
     By default, data will be save as a tuple format via pickle I/O functions
@@ -156,25 +153,24 @@ def retrieve_historical_stocks(start_date: str = '2012-01-01') -> Tuple:
 
     # Concat into one dataframe
     stacked_hist = pd.concat(stacked_data)
-    stacked_hist = stacked_hist.reset_index().sort_values(['ticker', 'date']).set_index(['ticker', 'date'])
 
-    return stacked_hist, tickers_metadata
+    # if no new data, exit the code
+    if stacked_hist.shape[0] == 0:
+        raise Exception("No New Data Available, Data Loading Process Stopped")
+
+    stacked_hist = preprocess_historical_data(stacked_hist, focused_stocks_ticker)
+
+    stacked_hist = stacked_hist.sort_values([PRIMARY_KEY, 'date']).set_index([PRIMARY_KEY, 'date'])
+
+    return stacked_hist
 
 
-def preprocess_historical_data(existing_hist: pd.DataFrame, new_hist: pd.DataFrame,
-                               tickers_metadata: pd.DataFrame) -> Tuple:
+def preprocess_historical_data(stacked_hist: pd.DataFrame, focused_stocks_ticker: pd.DataFrame) -> pd.DataFrame:
     logger.info("Preprocessing Data")
 
-    tickers_metadata['permaticker'] = tickers_metadata.permaticker.astype('str')
+    focused_stocks_ticker[PRIMARY_KEY] = focused_stocks_ticker[PRIMARY_KEY].astype('str')
 
-    # Filtering exchanges and categories of stocks
-    filter_exchange = NDL_CONFIG['exchanges']
-
-    filter_cat = NDL_CONFIG['stock_categories']
-    # Filter stocks that we focus on
-    focused_stocks_ticker = tickers_metadata[
-        (tickers_metadata.exchange.isin(filter_exchange)) & (
-            tickers_metadata.category.isin(filter_cat))][['ticker', 'permaticker', 'relatedtickers']].drop_duplicates()
+    focused_stocks_ticker = focused_stocks_ticker[['ticker', PRIMARY_KEY, 'relatedtickers']].drop_duplicates()
 
     ticker_list = []
     permaticker_list = []
@@ -184,67 +180,37 @@ def preprocess_historical_data(existing_hist: pd.DataFrame, new_hist: pd.DataFra
         if row['relatedtickers']:
             for ticker in row['relatedtickers'].split(' '):
                 ticker_list.append(ticker)
-                permaticker_list.append(row['permaticker'])
+                permaticker_list.append(row[PRIMARY_KEY])
                 none_list.append(None)
 
     deprecated_tickers = pd.DataFrame()
     deprecated_tickers['ticker'] = ticker_list
-    deprecated_tickers['permaticker'] = permaticker_list
+    deprecated_tickers[PRIMARY_KEY] = permaticker_list
     deprecated_tickers['relatedtickers'] = none_list
     deprecated_tickers = deprecated_tickers[~deprecated_tickers.isin(focused_stocks_ticker.ticker)]
     deprecated_tickers.dropna(inplace=True)
 
     permaticker_ticker = pd.concat([focused_stocks_ticker, deprecated_tickers])
 
-    will_be_deleted = existing_hist[~existing_hist.ticker.isin(permaticker_ticker.ticker.unique())].ticker.unique()
+    stacked_hist = stacked_hist.reset_index()
+    stacked_hist = pd.merge(stacked_hist, permaticker_ticker[['ticker', PRIMARY_KEY]], how='left', on=['ticker'])
 
-    logger.info(f'Tickers that will be deleted:')
-
-    for del_ticker in will_be_deleted:
-
-        print(f'{del_ticker}')
-
-    # deleting deprecated tickers according to SHARADAR/TICKERS
-    existing_hist = existing_hist[existing_hist.ticker.isin(permaticker_ticker.ticker.unique())]
-
-    existing_hist = existing_hist.reset_index()
-    new_hist = new_hist.reset_index()
-
-    if 'permaticker' not in existing_hist.columns:
-        existing_hist = pd.merge(existing_hist, permaticker_ticker[['ticker', 'permaticker']], how='left',
-                                 on=['ticker'])
-
-    new_hist = pd.merge(new_hist, permaticker_ticker[['ticker', 'permaticker']], how='left', on=['ticker'])
-    print(existing_hist.head())
-    print(new_hist.head())
-
-
-    return existing_hist, new_hist
+    return stacked_hist
 
 
 def update_historical_data(existing_hist: pd.DataFrame) -> pd.DataFrame:
     logger.info("Updating Data")
-    existing_hist = existing_hist.reset_index().set_index('date')
-    latest_data_date = existing_hist.index.max()
+    existing_hist = existing_hist.reset_index()
+    latest_data_date = existing_hist.date.max()
     next_avai_date = latest_data_date + relativedelta(days=1)
 
-    new_hist, tickers_metadata = retrieve_historical_stocks(next_avai_date.strftime("%Y-%m-%d"))
+    new_hist = retrieve_historical_stocks(next_avai_date.strftime("%Y-%m-%d"))
 
-    new_hist = new_hist.reset_index().set_index('date')
-
-    # if no new data, exit the code
-    if new_hist.shape[0] == 0:
-        raise Exception("No New Data Available, Data Update Process Stopped")
-
-    existing_hist, new_hist = preprocess_historical_data(existing_hist, new_hist, tickers_metadata)
+    new_hist = new_hist.reset_index()
 
     new_stacked_hist = pd.concat([existing_hist, new_hist])
 
-    print(existing_hist.head())
-    print(new_hist.head())
-    print(new_stacked_hist.head())
-
-    new_stacked_hist = new_stacked_hist.sort_values(['permaticker', 'date']).set_index(['permaticker', 'date'])
+    new_stacked_hist = new_stacked_hist.sort_values([PRIMARY_KEY, 'date']).set_index([PRIMARY_KEY, 'date'])
 
     return new_stacked_hist
 
@@ -256,12 +222,12 @@ def process_historical_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
 
     ohlcv_columns = list(stacked_hist.columns)
     ohlcv_columns.remove('ticker')
-    ohlcv_columns.remove('permaticker')
+    ohlcv_columns.remove(PRIMARY_KEY)
 
-    stacked_hist_wide = stacked_hist.reset_index().pivot(index='date', columns='permaticker', values=ohlcv_columns)
+    stacked_hist_wide = stacked_hist.reset_index().pivot(index='date', columns=PRIMARY_KEY, values=ohlcv_columns)
     stacked_hist_wide.columns = [f'{j}_{i}' for i, j in stacked_hist_wide.columns]
 
-    available_tickers = stacked_hist[['permaticker', 'ticker']].drop_duplicates()
+    available_tickers = stacked_hist[[PRIMARY_KEY, 'ticker']].drop_duplicates()
 
     return stacked_hist, stacked_hist_wide, available_tickers
 
@@ -275,17 +241,17 @@ def extend_dataframe(stacked_hist: pd.DataFrame) -> Tuple:
     """
 
     stacked_hist = stacked_hist.copy()
-    stacked_hist = stacked_hist.reset_index().sort_values(['permaticker', 'date']).set_index('date')
+    stacked_hist = stacked_hist.reset_index().sort_values([PRIMARY_KEY, 'date']).set_index('date')
     logger.info("Extending DataFrame")
 
     # lets get return statistics using closing prices
     # and volatility statistics using rolling standard deviations of 25 day window
     # lets also see if a stock is being actively traded, by seeing if closing price today != yesterday
-    stacked_hist['ret'] = stacked_hist.groupby('permaticker')['closeadj'].apply(lambda x: x / x.shift() - 1)
-    stacked_hist['retvol'] = stacked_hist.groupby('permaticker').ret.rolling(25).std().values
+    stacked_hist['ret'] = stacked_hist.groupby(PRIMARY_KEY)['closeadj'].apply(lambda x: x / x.shift() - 1)
+    stacked_hist['retvol'] = stacked_hist.groupby(PRIMARY_KEY).ret.rolling(25).std().values
     stacked_hist, stacked_hist_wide, available_tickers = process_historical_dataframe(stacked_hist)
     # get is_active columns
-    close_df = stacked_hist.reset_index().pivot(index='date', columns='permaticker', values='closeadj')
+    close_df = stacked_hist.reset_index().pivot(index='date', columns=PRIMARY_KEY, values='closeadj')
     is_active = ~close_df.isnull()
     is_active.columns = [f'{col}_active' for col in is_active.columns]
     stacked_hist_wide = pd.concat([stacked_hist_wide, is_active], axis=1)

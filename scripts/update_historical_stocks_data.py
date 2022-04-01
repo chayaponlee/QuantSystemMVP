@@ -1,6 +1,6 @@
 import os
 import logging
-from realgam.quantlib import data_utils as du, general_utils as gu, qlogger
+from realgam.quantlib import data_utils_ver2 as du, general_utils as gu, qlogger
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
-DATA_PATH = f'{PROJECT_PATH}/Data/stock_hist.obj'
-SAVE_PATH = f'{PROJECT_PATH}/Data/stock_hist.obj'
+DATA_PATH = f'{PROJECT_PATH}/Data/stock_hist_perma.obj'
+SAVE_PATH = f'{PROJECT_PATH}/Data/stock_hist_perma.obj'
 
 if __name__ == '__main__':
 
