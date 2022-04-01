@@ -62,7 +62,39 @@ class OpEngineerV(BaseEngineer):
             else:
                 return eng_values.stack().swaplevel()
 
-    def ts_ret(self, col: str, wide: bool = False, inplace: bool = False):
+    def ts_retfwd(self, future: str = 'closeadj', previous: str = 'openadj', n: int = 5, wide: bool = False,
+                  inplace: bool = False):
+        """
+        Calculate forward returns. The formula use avoids biases. It is not wise to do close to close returns because
+        we compute signals at the closing price, so it's not wise to use that closing price as the buy price. Instead,
+        we might use the next day open price.
+        Formula: Future price(t + n) / Previous price(t + 1) - 1
+
+        :param future: Future Price
+        :param previous: Previous Price
+        :param n: lookforward window
+        :param wide: if wide return a wide dataframe
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
+        """
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
+        if not isinstance(wide, bool):
+            raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
+        price1 = self.df[future].unstack(PRIMARY_KEY)
+        price2 = self.df[previous].unstack(PRIMARY_KEY)
+
+        eng_values = price1.shift(-n).div(price2.shift(-1)).subtract(1)
+
+        if inplace:
+            self.df[f'ts_retfwd_{future}_{previous}'] = eng_values.stack().swaplevel()
+        else:
+            if wide:
+                return eng_values
+            else:
+                return eng_values.stack().swaplevel()
+
+    def ts_ret(self, col: str = 'closeadj', wide: bool = False, inplace: bool = False):
         """
         Calculate daily return or t-1 return given a price column
         :param col :prices
