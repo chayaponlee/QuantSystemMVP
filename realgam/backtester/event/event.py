@@ -1,4 +1,7 @@
 from realgam.backtester.interface import Event
+from realgam.quantlib import qlogger
+import logging
+logger = qlogger.init(__file__, logging.INFO)
 
 
 class MarketEvent(Event):
@@ -78,7 +81,7 @@ class OrderEvent(Event):
         """
         Outputs the values within the Order.
         """
-        print(
+        logger.info(
             "Order: Symbol=%s, Type=%s, Quantity=%s, Direction=%s" %
             (self.symbol, self.order_type, self.quantity, self.direction)
         )

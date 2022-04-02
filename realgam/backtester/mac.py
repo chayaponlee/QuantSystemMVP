@@ -1,13 +1,23 @@
 from datetime import datetime as dt
-
+import json
 import numpy as np
-
+import os
 from backtest import Backtest
-from data import HistoricCSVDataHandler
-from event import SignalEvent
-from execution import SimulatedExecutionHandler
+from datahandler.handler import SharadarDataHandler
+from event.event import SignalEvent
+from execution.sim_execution import SimulatedExecutionHandler
 from portfolio import Portfolio
 from strategy import Strategy
+
+from realgam.quantlib import qlogger
+import logging
+logger = qlogger.init(__file__, logging.INFO)
+
+PROJECT_PATH = os.getenv('QuantSystemMVP')
+DATA_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist_perma.obj'
+
+STRAT_CONFIG_PATH = f'{PROJECT_PATH}/realgam/backtester/strategy_config.json'
+STRAT_CONFIG = json.load(open(STRAT_CONFIG_PATH))
 
 
 class MovingAverageCrossStrategy(Strategy):
@@ -57,7 +67,7 @@ class MovingAverageCrossStrategy(Strategy):
         """
         if event.type == 'MARKET':
             for symbol in self.symbol_list:
-                bars = self.bars.get_latest_bars_values(symbol, "close", N=self.long_window)               
+                bars = self.bars.get_latest_bars_values(symbol, "closeadj", N=self.long_window)
 
                 if bars is not None and bars != []:
                     short_sma = np.mean(bars[-self.short_window:])
@@ -82,20 +92,20 @@ class MovingAverageCrossStrategy(Strategy):
 
 
 if __name__ == "__main__":
-    csv_dir = "/path/to/your/csv/file"
-    symbol_list = ['AAPL']
+    # data_dir = DATA_PATH
+    symbol_list = STRAT_CONFIG['symbol_list']
     initial_capital = 100000.0
-    start_date = dt(1990,1,1,0,0,0)
+    start_date = dt(2018, 1, 1, 0, 0, 0)
     heartbeat = 0.0
 
-    backtest = Backtest(csv_dir, 
-                        symbol_list, 
-                        initial_capital, 
+    backtest = Backtest(DATA_PATH,
+                        symbol_list,
+                        initial_capital,
                         heartbeat,
                         start_date,
-                        HistoricCSVDataHandler, 
-                        SimulatedExecutionHandler, 
-                        Portfolio, 
+                        SharadarDataHandler,
+                        SimulatedExecutionHandler,
+                        Portfolio,
                         MovingAverageCrossStrategy)
-    
+
     backtest.simulate_trading()

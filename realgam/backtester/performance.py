@@ -3,6 +3,10 @@
 import numpy as np
 import pandas as pd
 
+from realgam.quantlib import qlogger
+import logging
+logger = qlogger.init(__file__, logging.INFO)
+
 
 def create_sharpe_ratio(returns, periods=252):
     """

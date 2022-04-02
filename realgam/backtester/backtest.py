@@ -8,6 +8,10 @@ try:
 except ImportError:
     import queue
 
+from realgam.quantlib import qlogger
+import logging
+logger = qlogger.init(__file__, logging.INFO)
+
 
 class Backtest:
     """
@@ -16,7 +20,7 @@ class Backtest:
     """
 
     def __init__(
-            self, csv_dir, symbol_list, initial_capital,
+            self, data_dir, symbol_list, initial_capital,
             heartbeat, start_date, data_handler,
             execution_handler, portfolio, strategy
     ):
@@ -24,7 +28,7 @@ class Backtest:
         Initialises the backtest.
 
         Parameters:
-        csv_dir - The hard root to the CSV data directory.
+        data_dir - The hard root to the CSV data directory.
         symbol_list - The list of symbol strings.
         intial_capital - The starting capital for the portfolio.
         heartbeat - Backtest "heartbeat" in seconds
@@ -34,7 +38,7 @@ class Backtest:
         portfolio - (Class) Keeps track of portfolio current and prior positions.
         strategy - (Class) Generates signals based on market data.
         """
-        self.csv_dir = csv_dir
+        self.data_dir = data_dir
         self.symbol_list = symbol_list
         self.initial_capital = initial_capital
         self.heartbeat = heartbeat
@@ -59,10 +63,10 @@ class Backtest:
         Generates the trading instance objects from 
         their class types.
         """
-        print(
+        logger.info(
             "Creating DataHandler, Strategy, Portfolio and ExecutionHandler"
         )
-        self.data_handler = self.data_handler_cls(self.events, self.csv_dir, self.symbol_list)
+        self.data_handler = self.data_handler_cls(self.events, self.data_dir, self.symbol_list)
         self.strategy = self.strategy_cls(self.data_handler, self.events)
         self.portfolio = self.portfolio_cls(self.data_handler, self.events, self.start_date,
                                             self.initial_capital)
@@ -75,7 +79,7 @@ class Backtest:
         i = 0
         while True:
             i += 1
-            print(i)
+            logger.info(i)
             # Update the market bars
             if self.data_handler.continue_backtest == True:
                 self.data_handler.update_bars()
@@ -114,16 +118,16 @@ class Backtest:
         """
         self.portfolio.create_equity_curve_dataframe()
 
-        print("Creating summary stats...")
+        logger.info("Creating summary stats...")
         stats = self.portfolio.output_summary_stats()
 
-        print("Creating equity curve...")
-        print(self.portfolio.equity_curve.tail(10))
+        logger.info("Creating equity curve...")
+        logger.info(self.portfolio.equity_curve.tail(10))
         pprint.pprint(stats)
 
-        print("Signals: %s" % self.signals)
-        print("Orders: %s" % self.orders)
-        print("Fills: %s" % self.fills)
+        logger.info("Signals: %s" % self.signals)
+        logger.info("Orders: %s" % self.orders)
+        logger.info("Fills: %s" % self.fills)
 
     def simulate_trading(self):
         """

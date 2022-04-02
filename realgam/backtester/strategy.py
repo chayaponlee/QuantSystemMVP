@@ -1,16 +1,16 @@
 # strategy.py
 
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
 try:
     import Queue as queue
 except ImportError:
     import queue
 
-from event import SignalEvent
+from realgam.backtester.event.event import SignalEvent
 
 
-class Strategy(object):
+class Strategy(ABC):
     """
     Strategy is an abstract base class providing an interface for
     all subsequent (inherited) strategy handling objects.
@@ -23,8 +23,6 @@ class Strategy(object):
     the Strategy object is agnostic to where the data came from,
     since it obtains the bar tuples from a queue object.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def calculate_signals(self):

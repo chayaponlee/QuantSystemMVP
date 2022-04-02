@@ -9,6 +9,10 @@ except ImportError:
 
 from realgam.backtester.event.event import FillEvent
 
+from realgam.quantlib import qlogger
+import logging
+logger = qlogger.init(__file__, logging.INFO)
+
 
 class SimulatedExecutionHandler(ExecutionHandler):
     """
