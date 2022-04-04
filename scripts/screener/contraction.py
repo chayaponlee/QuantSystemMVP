@@ -14,7 +14,7 @@ logger = qlogger.init(__file__, logging.INFO)
 PROJECT_PATH = os.getenv('QuantSystemMVP')
 
 DATA_PATH = f'{PROJECT_PATH}/Data/historical/stock_hist_perma.obj'
-SAVE_PATH = f'{PROJECT_PATH}/Screen_Data/'
+SAVE_PATH = f'{PROJECT_PATH}/Screen_Data/contraction_bb_keltner/'
 
 N = 365 * 2
 PRIMARY_KEY = 'permaticker'
@@ -32,10 +32,9 @@ def ATRG(df, period):
 
 
 def KCG(df, multKC):
-    upper = df.bb_mid.add(df.atr).mul(multKC)
-    lower = df.bb_mid.subtract(df.atr).mul(multKC)
+    upper = df.bb_mid.add(df.atr.mul(multKC))
+    lower = df.bb_mid.subtract(df.atr.mul(multKC))
     return pd.DataFrame({'upper_kc': upper, 'lower_kc': lower}, index=df.index)
-
 
 def get_sepa_stocks(sf1, sepa_stocks, ticker_info):
     ticker_info = ticker_info[['ticker', 'exchange']].drop_duplicates(keep='first').copy()
@@ -109,143 +108,67 @@ if __name__ == '__main__':
     date_N_ago = (datetime.now() - timedelta(days=N))
 
     eod_focus = stocks_df[stocks_df.date > date_N_ago]
-    available_tickers = eod_focus[['permaticker', 'ticker']].drop_duplicates(keep='last')
-    latest_ticker_universe_pair = available_tickers.drop_duplicates('permaticker', keep='last')
-    latest_permatickers = list(latest_ticker_universe_pair['permaticker'])
-    latest_tickers = list(latest_ticker_universe_pair['ticker'])
+    # available_tickers = eod_focus[['permaticker', 'ticker']].drop_duplicates(keep='last')
+    # latest_ticker_universe_pair = available_tickers.drop_duplicates('permaticker', keep='last')
+    # latest_permatickers = list(latest_ticker_universe_pair['permaticker'])
+    # latest_tickers = list(latest_ticker_universe_pair['ticker'])
 
-    symbol_name_converter = {}
-    for permaticker, ticker in zip(latest_permatickers, latest_tickers):
-        symbol_name_converter[permaticker] = ticker
-        symbol_name_converter[ticker] = permaticker
+    # symbol_name_converter = {}
+    # for permaticker, ticker in zip(latest_permatickers, latest_tickers):
+    #     symbol_name_converter[permaticker] = ticker
+    #     symbol_name_converter[ticker] = permaticker
 
-    eod_focus.sort_values(['permaticker', 'date'], inplace=True)
+    eod_focus.sort_values([PRIMARY_KEY, 'date'], inplace=True)
 
-    logger.info('Creating indicators')
-    # Calculate ma’s, 52w high and low
-    eod_focus['ma_50'] = eod_focus.groupby('ticker').rolling(50).closeadj.mean().values
     eod_focus['ma_150'] = eod_focus.groupby('ticker').rolling(150).closeadj.mean().values
     eod_focus['ma_200'] = eod_focus.groupby('ticker').rolling(200).closeadj.mean().values
-    eod_focus['w52_high'] = eod_focus.groupby('ticker').rolling(200).closeadj.max().values
-    eod_focus['w52_low'] = eod_focus.groupby('ticker').rolling(200).closeadj.min().values
-
-    # Calculate pct change for various metrics necessary for trend template
-    eod_focus['ma_200_lag1m'] = eod_focus.groupby('ticker').ma_200.shift(25)
-    eod_focus['ma_200_lag5m'] = eod_focus.groupby('ticker').ma_200.shift(110)
-    eod_focus['w52_low_pct_diff'] = eod_focus.closeadj / eod_focus.w52_low - 1
-    eod_focus['w52_high_pct_diff'] = (eod_focus.closeadj / eod_focus.w52_high - 1).abs()
-    eod_focus['close_lag1y'] = eod_focus.groupby('ticker').closeadj.shift(252)
-    eod_focus['annual_ret'] = eod_focus.closeadj / eod_focus.close_lag1y - 1
 
     # params for bbands and keltner channels
     n_window = 20
-    multBB = 2
-    multKC = 1.5
+    multBB = multKC = 1.5
+
     eod_focus[['bb_up', 'bb_mid', 'bb_low']] = eod_focus.groupby(PRIMARY_KEY).apply(BBANDSG, period=n_window,
                                                                                     multBB=multBB)
     eod_focus['atr'] = eod_focus.groupby(PRIMARY_KEY).apply(ATRG, period=n_window).values
     eod_focus[['kc_up', 'kc_low']] = eod_focus.groupby(PRIMARY_KEY).apply(KCG, multKC=multKC)
 
     # Take only latest data for all tickers and drop all stocks that doesn’t have enough data (ma200 is null)
-    filter_time = eod_focus.groupby('ticker').tail(1).dropna()
+    filter_time = eod_focus.groupby(PRIMARY_KEY).tail(1).dropna()
 
-    # IBD ranking
-    filter_time['ibd_rank'] = filter_time.annual_ret.rank(pct=True)
+    filter_time = filter_time[filter_time.date == filter_time.date.max()]
 
-    # create sepa candidates for 1m, 5m, and 5m wide
-    logger.info("Creating SEPA candidates")
-    sepa_1m = filter_time[((filter_time.closeadj > filter_time.ma_150)  # current price above 150 day moving average
-                           # & (filter_time.closeadj > filter_time.ma_50) # current price above 50 day moving average
+    logger.info('Creating squeeze candidates')
+
+    # filter for trending candidates
+    filter_time = filter_time[((filter_time.closeadj > filter_time.ma_150)  # current price above 150 day moving average
                            & (filter_time.closeadj > filter_time.ma_200)  # current price above 200 day moving average
-                           & (filter_time.ma_200 > filter_time.ma_200_lag1m)  # current ma_200 is trending up
-                           & (
-                                       filter_time.ma_150 > filter_time.ma_200)  # 150 day moving average > 200 day moving average
-                           & (filter_time.ma_50 > filter_time.ma_150)  # 50 day moving average > 150 day moving average
-                           & (filter_time.ma_50 > filter_time.ma_200)  # 50 day moving average > 200 day moving average
-                           & (filter_time.w52_low_pct_diff >= 0.3)  # current price > 52w_low atleast 30%
-                           & (filter_time.w52_high_pct_diff <= 0.25)  # current price within 25% of 52w_high
-                           & (filter_time.ibd_rank >= 0.7)  # ibd ranking > 0.7
-                           )]
+                           & (filter_time.ma_150 > filter_time.ma_200))]
+    # filter for squeeze candidates
+    filter_time = filter_time[(filter_time.bb_low > filter_time.kc_low) & (filter_time.bb_up < filter_time.kc_up)]
 
-    sepa_5m = filter_time[((filter_time.closeadj > filter_time.ma_150)  # current price above 150 day moving average
-                           # & (filter_time.closeadj > filter_time.ma_50) # current price above 50 day moving average
-                           & (filter_time.closeadj > filter_time.ma_200)  # current price above 200 day moving average
-                           & (filter_time.ma_200 > filter_time.ma_200_lag5m)  # current ma_200 is trending up
-                           & (
-                                       filter_time.ma_150 > filter_time.ma_200)  # 150 day moving average > 200 day moving average
-                           & (filter_time.ma_50 > filter_time.ma_150)  # 50 day moving average > 150 day moving average
-                           & (filter_time.ma_50 > filter_time.ma_200)  # 50 day moving average > 200 day moving average
-                           & (filter_time.w52_low_pct_diff >= 0.3)  # current price > 52w_low atleast 30%
-                           & (filter_time.w52_high_pct_diff <= 0.25)  # current price within 25% of 52w_high
-                           & (filter_time.ibd_rank >= 0.7)  # ibd ranking > 0.7
-                           )]
+    sym_list = list(filter_time.ticker.unique())
 
-    sepa_5m_wide = filter_time[
-        ((filter_time.closeadj > filter_time.ma_150)  # current price above 150 day moving average
-         # & (filter_time.closeadj > filter_time.ma_50) # current price above 50 day moving average
-         & (filter_time.closeadj > filter_time.ma_200)  # current price above 200 day moving average
-         & (filter_time.ma_200 > filter_time.ma_200_lag5m)  # current ma_200 is trending up
-         & (filter_time.ma_150 > filter_time.ma_200)  # 150 day moving average > 200 day moving average
-         & (filter_time.ma_50 > filter_time.ma_150)  # 50 day moving average > 150 day moving average
-         & (filter_time.ma_50 > filter_time.ma_200)  # 50 day moving average > 200 day moving average
-         & (filter_time.w52_low_pct_diff >= 0.3)  # current price > 52w_low atleast 30%
-         & (filter_time.w52_high_pct_diff <= 0.25)  # current price within 25% of 52w_high
-         )]
+    logger.info(f'Number of contraction candidates: {len(sym_list)}')
 
-    # print(sepa_1m.ticker.unique())
-    # logger.info('Creating squeeze candidates')
-    # # filter for squeeze candidates
-    # sepa_1m = sepa_1m[(sepa_1m.bb_low > sepa_1m.kc_low) & (sepa_1m.bb_up < sepa_1m.kc_up)]
-    # sepa_5m = sepa_5m[(sepa_5m.bb_low > sepa_5m.kc_low) & (sepa_5m.bb_up < sepa_5m.kc_up)]
-    # sepa_5m_wide = sepa_5m_wide[(sepa_5m_wide.bb_low > sepa_5m_wide.kc_low) & (sepa_5m_wide.bb_up < sepa_5m_wide.kc_up)]
-    # print(sepa_1m.ticker.unique())
-    # filter symbols
-    sepa_1m_sym = list(sepa_1m[PRIMARY_KEY])
-    sepa_5m_sym = list(sepa_5m[PRIMARY_KEY])
-    sepa_5m_wide_sym = list(sepa_5m_wide[(~sepa_5m_wide[PRIMARY_KEY].isin(sepa_5m_sym)) &
-                                         (~sepa_5m_wide[PRIMARY_KEY].isin(sepa_1m_sym))][PRIMARY_KEY])
-
-
-    # covert permaticker to ticker
-    sepa_1m_sym = [symbol_name_converter[symbol] for symbol in sepa_1m_sym]
-    sepa_5m_sym = [symbol_name_converter[symbol] for symbol in sepa_5m_sym]
-    sepa_5m_wide_sym = [symbol_name_converter[symbol] for symbol in sepa_5m_wide_sym]
-
-
-
-    # get unique symbols
-    union_syms_temp = sepa_1m_sym + sepa_5m_sym + sepa_5m_wide_sym
-    union_syms = list(dict.fromkeys(union_syms_temp))
-
-    print(len(union_syms))
     logger.info('Loading Financials')
     financial_cols = ['ticker', 'dimension', 'calendardate', 'datekey', 'eps', 'revenue', 'netmargin']
-    sf1 = ndl.get_table('SHARADAR/SF1', ticker=union_syms, qopts={"columns": financial_cols}, dimension='ARQ',
+    sf1 = ndl.get_table('SHARADAR/SF1', ticker=sym_list, qopts={"columns": financial_cols}, dimension='ARQ',
                         paginate=True)
     logger.info("Filtering Good Fundamentals Candidates")
-    class_a_1m, class_b_1m = get_sepa_stocks(sf1, sepa_1m_sym, ticker_info)
-    class_a_5m, class_b_5m = get_sepa_stocks(sf1, sepa_5m_sym, ticker_info)
-    class_a_5mw, class_b_5mw = get_sepa_stocks(sf1, sepa_5m_wide_sym, ticker_info)
+    class_a, class_b = get_sepa_stocks(sf1, sym_list, ticker_info)
 
+    logger.info(f'Number of contraction A candidates: {class_a.shape[0]}')
+    logger.info(list(class_a['tview_name']))
+
+    logger.info(f'Number of contraction B candidates: {class_b.shape[0]}')
+    logger.info(list(class_b['tview_name']))
     # Outputing screened candidates
-    # date_today = datetime.now()
-    # class_a_1m[['tview_name']].to_csv(
-    #     f'{SAVE_PATH}class_a_1m_{date_today.year}_{date_today.month}_{date_today.day}.txt',
-    #     header=None, index=None, sep=',')
-    # class_b_1m[['tview_name']].to_csv(
-    #     f'{SAVE_PATH}class_b_1m_{date_today.year}_{date_today.month}_{date_today.day}.txt',
-    #     header=None, index=None, sep=',')
-    #
-    # # class_a_5m[['tview_name']].to_csv(f'{SAVE_PATH}class_a_5m_{date_today.year}_{date_today.month}_{date_today.day}.txt',
-    # #                                   header=None, index=None, sep = ',')
-    # # class_b_5m[['tview_name']].to_csv(f'{SAVE_PATH}class_b_5m_{date_today.year}_{date_today.month}_{date_today.day}.txt',
-    # #                                   header=None, index=None, sep = ',')
-    #
-    # class_b_5mw[['tview_name']].to_csv(
-    #     f'{SAVE_PATH}class_a_5mw_{date_today.year}_{date_today.month}_{date_today.day}.txt',
-    #     header=None, index=None, sep=',')
-    # class_b_5mw[['tview_name']].to_csv(
-    #     f'{SAVE_PATH}class_b_5mw_{date_today.year}_{date_today.month}_{date_today.day}.txt',
-    #     header=None, index=None, sep=',')
-    #
-    # logger.info(f"Screened candidates saved to {SAVE_PATH}")
+    date_today = datetime.now()
+    class_a[['tview_name']].to_csv(
+        f'{SAVE_PATH}contraction_a2_{date_today.year}_{date_today.month}_{date_today.day}.txt',
+        header=None, index=None, sep=',')
+    class_b[['tview_name']].to_csv(
+        f'{SAVE_PATH}contraction_b2_{date_today.year}_{date_today.month}_{date_today.day}.txt',
+        header=None, index=None, sep=',')
+
+    logger.info(f"Screened candidates saved to {SAVE_PATH}")
