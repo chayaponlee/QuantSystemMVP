@@ -1,4 +1,4 @@
-from realgam.backtester.interface import DataHandler
+from realgam.backtester.interface import IDataHandler
 import os
 
 import numpy as np
@@ -12,7 +12,7 @@ import logging
 logger = qlogger.init(__file__, logging.INFO)
 
 
-class HistoricCSVDataHandler(DataHandler):
+class HistoricCSVDataHandler(IDataHandler):
     """
     HistoricCSVDataHandler is designed to read CSV files for
     each requested symbol from disk and provide an interface
@@ -167,7 +167,7 @@ class HistoricCSVDataHandler(DataHandler):
         self.events.put(MarketEvent())
 
 
-class SharadarDataHandler(DataHandler):
+class SharadarDataHandler(IDataHandler):
     """
     SharadarDataHandler is designed to read in historical symbols data based on Sharadar's data format
     Currently the type of data is a pickle .obj format
@@ -176,7 +176,7 @@ class SharadarDataHandler(DataHandler):
     Primary symbol key will be permaticker
     """
 
-    def __init__(self, events, data_dir, symbol_list):
+    def __init__(self, events, data_dir, symbol_list, start_date):
         """
         Initialises the Sharadar data handler by requesting
         for location of the pickle object and loading the whole symbol universe data
@@ -192,6 +192,7 @@ class SharadarDataHandler(DataHandler):
         self.events = events
         self.data_dir = data_dir
         self.symbol_list = symbol_list
+        self.start_date = start_date
         self.symbol_name_converter = {}
         self.symbol_data = {}
         self.symbol_data_cols = ['date', 'openadj', 'highadj', 'lowadj', 'closeadj', 'volume']
@@ -208,8 +209,10 @@ class SharadarDataHandler(DataHandler):
         """
         comb_index = None
         logger.info(f'Loading data from {self.data_dir}')
-        stocks_df, _, available_tickers = gu.load_file(self.data_dir)
+        stocks_df, _, _ = gu.load_file(self.data_dir)
         stocks_df = stocks_df.reset_index()
+        stocks_df = stocks_df[stocks_df.date >= self.start_date]
+        available_tickers = stocks_df[['permaticker', 'ticker']].drop_duplicates(keep='last')
         latest_ticker_universe_pair = available_tickers.drop_duplicates('permaticker', keep='last')
         latest_permatickers = list(latest_ticker_universe_pair['permaticker'])
         latest_tickers = list(latest_ticker_universe_pair['ticker'])
@@ -221,6 +224,17 @@ class SharadarDataHandler(DataHandler):
 
         if self.symbol_list is None:
             self.symbol_list = latest_permatickers
+        else:
+            symbols_non_include = [sym for sym in self.symbol_list if sym not in latest_permatickers]
+            if len(symbols_non_include) > 0:
+                logger.info(f'Symbols not available in data: {symbols_non_include}')
+                temp_sym_list = [sym for sym in self.symbol_list if sym in latest_permatickers]
+                # remove duplicates
+                self.symbol_list = list(dict.fromkeys(temp_sym_list))
+            else:
+                self.symbol_list = list(dict.fromkeys(self.symbol_list))
+                logger.info("All symbols in symbol list are available to backtest")
+
         logger.info(f'Number of symbols in universe: {len(self.symbol_list)}')
 
         logger.info("Iterating data onto symbol data ")
@@ -242,6 +256,10 @@ class SharadarDataHandler(DataHandler):
 
         logger.info("Reindexing data for each symbol")
         for s in self.symbol_list:
+            # print(s)
+            # if s == '199059':
+            #
+            #     print(self.symbol_data[s])
             self.symbol_data[s] = self.symbol_data[s].reindex(
                 index=comb_index, method='pad'
             )

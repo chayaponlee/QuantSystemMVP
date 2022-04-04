@@ -1,0 +1,5 @@
+{
+  "close_column_name": "closeadj",
+  "open_column_name": "openadj",
+  "backtest_output_dir": "/Volumes/Samsung_T5/Mac/Projects/Python/QuantSystemMVP/Backtest_Data"
+}

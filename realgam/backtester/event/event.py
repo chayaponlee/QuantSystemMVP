@@ -1,10 +1,11 @@
-from realgam.backtester.interface import Event
+from realgam.backtester.interface import IEvent
 from realgam.quantlib import qlogger
 import logging
+
 logger = qlogger.init(__file__, logging.INFO)
 
 
-class MarketEvent(Event):
+class MarketEvent(IEvent):
     """
     Handles the event of receiving a new market update with
     corresponding bars.
@@ -17,7 +18,7 @@ class MarketEvent(Event):
         self.type = 'MARKET'
 
 
-class SignalEvent(Event):
+class SignalEvent(IEvent):
     """
     Handles the event of sending a Signal from a Strategy object.
     This is received by a Portfolio object and acted upon.
@@ -43,7 +44,7 @@ class SignalEvent(Event):
         self.strength = strength
 
 
-class OrderEvent(Event):
+class OrderEvent(IEvent):
     """
     Handles the event of sending an Order to an execution system.
     The order contains a symbol (e.g. GOOG), a type (market or limit),
@@ -87,7 +88,45 @@ class OrderEvent(Event):
         )
 
 
-class FillEvent(Event):
+class OrderEvent2(IEvent):
+    """
+    Handles the event of sending an Order to an execution system.
+    The order contains a symbol (e.g. GOOG), a type (market or limit),
+    quantity and a direction.
+    """
+
+    def __init__(self, symbol, order_type, direction):
+        """
+        Initialises the order type, setting whether it is
+        a Market order ('MKT') or Limit order ('LMT'), has
+        a quantity (integral) and its direction ('BUY' or
+        'SELL').
+
+        Potential future types of order:
+        'ND_MKT_CLOSE', 'ND_MKT_OPEN'
+
+        Parameters:
+        symbol - The instrument to trade.
+        order_type - 'MKT' or 'LMT' for Market or Limit.
+        quantity - Non-negative integer for quantity.
+        direction - 'BUY' or 'SELL' for long or short.
+        """
+        self.type = 'ORDER'
+        self.symbol = symbol
+        self.order_type = order_type
+        self.direction = direction
+
+    def print_order(self):
+        """
+        Outputs the values within the Order.
+        """
+        logger.info(
+            "Order: Symbol=%s, Type=%s, Direction=%s" %
+            (self.symbol, self.order_type, self.direction)
+        )
+
+
+class FillEvent(IEvent):
     """
     Encapsulates the notion of a Filled Order, as returned
     from a brokerage. Stores the quantity of an instrument

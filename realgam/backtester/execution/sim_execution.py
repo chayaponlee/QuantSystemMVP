@@ -1,6 +1,6 @@
 # execution.py
 
-from realgam.backtester.interface import ExecutionHandler
+from realgam.backtester.interface import IExecutionHandler
 from datetime import datetime as dt
 try:
     import Queue as queue
@@ -14,7 +14,7 @@ import logging
 logger = qlogger.init(__file__, logging.INFO)
 
 
-class SimulatedExecutionHandler(ExecutionHandler):
+class SimulatedExecutionHandler(IExecutionHandler):
     """
     The simulated execution handler simply converts all order
     objects into their equivalent fill objects automatically
@@ -35,7 +35,7 @@ class SimulatedExecutionHandler(ExecutionHandler):
         """
         self.events = events
 
-    def execute_order(self, event):
+    def manage_order(self, event):
         """
         Simply converts Order objects into Fill objects naively,
         i.e. without any latency, slippage or fill ratio problems.
