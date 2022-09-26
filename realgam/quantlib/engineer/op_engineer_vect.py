@@ -5,6 +5,7 @@ from realgam.quantlib.engineer.interface import BaseEngineer, GroupBaseEngineer
 from realgam.quantlib.engineer.utils import rank_last_value, rolling_rank
 from joblib import Parallel, delayed
 
+
 # PRIMARY_KEY = 'permaticker'
 
 
@@ -137,6 +138,30 @@ class OpEngineerV(BaseEngineer):
 
         if inplace:
             self.df[f'ts_retn{n}_{col}'] = eng_values.stack().swaplevel()
+        else:
+            if wide:
+                return eng_values
+            else:
+                return eng_values.stack().swaplevel()
+
+    def ts_mean(self, col: str, n: int, wide: bool = False, inplace: bool = False):
+        """
+        Rolling mean of given col name
+        :param col: prices
+        :param n: lags
+        :param wide: if wide return a wide dataframe
+        :param inplace: if True, add engineered column to dataframe attr
+        :return: if inplace == False, return pd.Series
+        """
+        if not isinstance(inplace, bool):
+            raise Exception(f"'inplace' argument should be a bool, received {type(inplace)}")
+        if not isinstance(wide, bool):
+            raise Exception(f"'wide' argument should be a bool, received {type(wide)}")
+        price = self.df[col].unstack(self.primary_key)
+        eng_values = price.rolling(n).mean()
+
+        if inplace:
+            self.df[f'ts_mean{n}_{col}'] = eng_values.stack().swaplevel()
         else:
             if wide:
                 return eng_values
