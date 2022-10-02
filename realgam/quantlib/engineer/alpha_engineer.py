@@ -363,3 +363,293 @@ class AlphaEngineer(BaseEngineer):
                 .div(ts_sum(self.v, 20))
                 .stack(self.primary_key)
                 .swaplevel())
+
+    def alpha31(self):
+        """((rank(rank(rank(ts_weighted_mean((-1 * rank(rank(ts_delta(close, 10)))), 10)))) +
+            rank((-1 * ts_delta(close, 3)))) + sign(scale(ts_corr(adv20, low, 12))))
+        """
+        return (rank(rank(rank(ts_weighted_mean(rank(rank(ts_delta(self.c, 10))).mul(-1), 10))))
+                .add(rank(ts_delta(self.c, 3).mul(-1)))
+                .add(sign(scale(ts_corr(self.adv20, self.l, 12)
+                                .replace([-np.inf, np.inf],
+                                         np.nan))))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha32(self):
+        """scale(ts_mean(close, 7) - close) +
+            (20 * scale(ts_corr(vwap, ts_lag(close, 5),230)))"""
+        return (scale(ts_mean(self.c, 7).sub(self.c))
+                .add(20 * scale(ts_corr(self.vwap,
+                                        ts_lag(self.c, 5), 230)))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha33(self):
+        """rank(-(1 - (open / close)))"""
+        return (rank(self.o.div(self.c).mul(-1).add(1).mul(-1))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha34(self):
+        """rank(((1 - rank((ts_std(returns, 2) / ts_std(returns, 5)))) + (1 - rank(ts_delta(close, 1)))))"""
+
+        return (rank(rank(ts_std(self.r, 2).div(ts_std(self.r, 5))
+                          .replace([-np.inf, np.inf],
+                                   np.nan))
+                     .mul(-1)
+                     .sub(rank(ts_delta(self.c, 1)))
+                     .add(2))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha35(self):
+        """((ts_Rank(volume, 32) *
+            (1 - ts_Rank(((close + high) - low), 16))) *
+            (1 -ts_Rank(returns, 32)))
+        """
+        return (ts_rank(self.v, 32)
+                .mul(1 - ts_rank(self.c.add(self.h).sub(self.l), 16))
+                .mul(1 - ts_rank(self.r, 32))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha36(self):
+        """2.21 * rank(ts_corr((close - open), ts_lag(volume, 1), 15)) +
+            0.7 * rank((open- close)) +
+            0.73 * rank(ts_Rank(ts_lag(-1 * returns, 6), 5)) +
+            rank(abs(ts_corr(vwap,adv20, 6))) +
+            0.6 * rank(((ts_mean(close, 200) - open) * (close - open)))
+        """
+
+        return (rank(ts_corr(self.c.sub(self.o), ts_lag(self.v, 1), 15)).mul(2.21)
+                .add(rank(self.o.sub(self.c)).mul(.7))
+                .add(rank(ts_rank(ts_lag(-self.r, 6), 5)).mul(0.73))
+                .add(rank(abs(ts_corr(self.vwap, self.adv20, 6))))
+                .add(rank(ts_mean(self.c, 200).sub(self.o).mul(self.c.sub(self.o))).mul(0.6))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha37(self):
+        """(rank(ts_corr(ts_lag((open - close), 1), close, 200)) + rank((open - close)))"""
+        return (rank(ts_corr(ts_lag(self.o.sub(self.c), 1), self.c, 200))
+                .add(rank(self.o.sub(self.c)))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha38(self):
+        """"-1 * rank(ts_rank(close, 10)) * rank(close / open)"""
+        return (rank(ts_rank(self.o, 10))
+                .mul(rank(self.c.div(self.o).replace([-np.inf, np.inf], np.nan)))
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha39(self):
+        """-rank(ts_delta(close, 7) * (1 - rank(ts_weighted_mean(volume / adv20, 9)))) *
+                (1 + rank(ts_sum(returns, 250)))"""
+        return (rank(ts_delta(self, 7).mul(rank(ts_weighted_mean(self.v.div(self.adv20), 9)).mul(-1).add(1))).mul(-1)
+                .mul(rank(ts_mean(self.r, 250).add(1)))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha40(self):
+        """((-1 * rank(ts_std(high, 10))) * ts_corr(high, volume, 10))
+        """
+        return (rank(ts_std(self.h, 10))
+                .mul(ts_corr(self.h, self.v, 10))
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha41(self):
+        """power(high * low, 0.5 - vwap"""
+        return (power(self.h.mul(self.l), 0.5)
+                .sub(self.vwap)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha42(self):
+        """rank(vwap - close) / rank(vwap + close)"""
+        return (rank(self.vwap.sub(self.c))
+                .div(rank(self.vwap.add(self.c)))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha43(self):
+        """(ts_rank((volume / adv20), 20) * ts_rank((-1 * ts_delta(close, 7)), 8))"""
+
+        return (ts_rank(self.v.div(self.adv20), 20)
+                .mul(ts_rank(ts_delta(self.c, 7).mul(-1), 8))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha44(self):
+        """-ts_corr(high, rank(volume), 5)"""
+
+        return (ts_corr(self.h, rank(self.v), 5)
+                .replace([-np.inf, np.inf], np.nan)
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha45(self):
+        """-(rank((ts_mean(ts_lag(close, 5), 20)) *
+            ts_corr(close, volume, 2)) *
+            rank(ts_corr(ts_sum(close, 5), ts_sum(close, 20), 2)))"""
+
+        return (rank(ts_mean(ts_lag(self.c, 5), 20))
+                .mul(ts_corr(self.c, self.v, 2)
+                     .replace([-np.inf, np.inf], np.nan))
+                .mul(rank(ts_corr(ts_sum(self.c, 5),
+                                  ts_sum(self.c, 20), 2)))
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha46(self):
+        """0.25 < ts_lag(ts_delta(close, 10), 10) / 10 - ts_delta(close, 10) / 10
+                ? -1
+                : ((ts_lag(ts_delta(close, 10), 10) / 10 - ts_delta(close, 10) / 10 < 0)
+                    ? 1
+                    : -ts_delta(close, 1))
+        """
+
+        cond = ts_lag(ts_delta(self.c, 10), 10).div(10).sub(ts_delta(self.c, 10).div(10))
+        alpha = pd.DataFrame(-np.ones_like(cond),
+                             index=self.c.index,
+                             columns=self.c.columns)
+        alpha[cond.isnull()] = np.nan
+        return (cond.where(cond > 0.25,
+                           -alpha.where(cond < 0,
+                                        -ts_delta(self.c, 1)))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha47(self):
+        """((((rank((1 / close)) * volume) / adv20) * ((high * rank((high - close))) /
+            (ts_sum(high, 5) /5))) - rank((vwap - ts_lag(vwap, 5))))"""
+
+        return (rank(self.c.pow(-1)).mul(self.v).div(self.adv20)
+                .mul(self.h.mul(rank(self.h.sub(self.c))
+                           .div(ts_mean(self.h, 5)))
+                     .sub(rank(ts_delta(self.vwap, 5))))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    # def alpha48(c, industry):
+    #     """(indneutralize(((ts_corr(ts_delta(close, 1), ts_delta(ts_lag(close, 1), 1), 250) *
+    #         ts_delta(close, 1)) / close), IndClass.subindustry) /
+    #         ts_sum(((ts_delta(close, 1) / ts_lag(close, 1))^2), 250))"""
+    #     pass
+
+    def alpha48(self):
+        """(indneutralize(((ts_corr(ts_delta(close, 1), ts_delta(ts_lag(close, 1), 1), 250) *
+            ts_delta(close, 1)) / close), IndClass.subindustry) /
+            ts_sum(((ts_delta(close, 1) / ts_lag(close, 1))^2), 250))"""
+        return np.nan
+
+    def alpha49(self):
+        """ts_delta(ts_lag(close, 10), 10).div(10).sub(ts_delta(close, 10).div(10)) < -0.1 * c
+            ? 1
+            : -ts_delta(close, 1)"""
+        cond = (ts_delta(ts_lag(self.c, 10), 10).div(10)
+                .sub(ts_delta(self.c, 10).div(10)) >= -0.1 * self.c)
+        return (-ts_delta(self.c, 1)
+                .where(cond, 1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha50(self):
+        """-ts_max(rank(ts_corr(rank(volume), rank(vwap), 5)), 5)"""
+        return (ts_max(rank(ts_corr(rank(self.v),
+                                    rank(self.vwap), 5)), 5)
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha51(self):
+        """ts_delta(ts_lag(close, 10), 10).div(10).sub(ts_delta(close, 10).div(10)) < -0.05 * c
+            ? 1
+            : -ts_delta(close, 1)"""
+        cond = (ts_delta(ts_lag(self.c, 10), 10).div(10)
+                .sub(ts_delta(self.c, 10).div(10)) >= -0.05 * self.c)
+        return (-ts_delta(self.c, 1)
+                .where(cond, 1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha52(self):
+        """(ts_lag(ts_min(low, 5), 5) - ts_min(low, 5)) *
+            rank((ts_sum(returns, 240) - ts_sum(returns, 20)) / 220) *
+            ts_rank(volume, 5)
+        """
+        return (ts_delta(ts_min(self.l, 5), 5)
+                .mul(rank(ts_sum(self.r, 240)
+                          .sub(ts_sum(self.r, 20))
+                          .div(220)))
+                .mul(ts_rank(self.v, 5))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha53(self):
+        """-1 * ts_delta(1 - (high - close) / (close - low), 9)"""
+        inner = (self.c.sub(self.l)).add(1e-6)
+        return (ts_delta(self.h.sub(self.c)
+                         .mul(-1).add(1)
+                         .div(self.c.sub(self.l)
+                              .add(1e-6)), 9)
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha54(self):
+        """-(low - close) * power(open, 5) / ((low - high) * power(close, 5))"""
+        return (self.l.sub(self.c).mul(self.o.pow(5)).mul(-1)
+                .div(self.l.sub(self.h).replace(0, -0.0001).mul(self.c ** 5))
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha55(self):
+        """(-1 * ts_corr(rank(((close - ts_min(low, 12)) /
+                                (ts_max(high, 12) - ts_min(low,12)))),
+                        rank(volume), 6))"""
+
+        return (ts_corr(rank(self.c.sub(ts_min(self.l, 12))
+                             .div(ts_max(self.h, 12).sub(ts_min(self.l, 12))
+                                  .replace(0, 1e-6))),
+                        rank(self.v), 6)
+                .replace([-np.inf, np.inf], np.nan)
+                .mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha56(self):
+        """-rank(ts_sum(returns, 10) / ts_sum(ts_sum(returns, 2), 3)) *
+            rank((returns * cap))
+        """
+        return np.nan
+
+    def alpha57(self):
+        """-(close - vwap) / ts_weighted_mean(rank(ts_argmax(close, 30)), 2)"""
+        return (self.c.sub(self.vwap.add(1e-5))
+                .div(ts_weighted_mean(rank(ts_argmax(self.c, 30)))).mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
+
+    def alpha58(self):
+        """(-1 * ts_rank(ts_weighted_mean(ts_corr(IndNeutralize(vwap, IndClass.sector), volume, 3), 7), 5))"""
+        return np.nan
+
+    def alpha59(self):
+        """-ts_rank(ts_weighted_mean(ts_corr(IndNeutralize(vwap, IndClass.industry), volume, 4), 16), 8)"""
+        return np.nan
+
+    def alpha60(self):
+        """-((2 * scale(rank(((((close - low) - (high - close)) / (high - low)) * volume)))) -scale(rank(ts_argmax(close, 10))))"""
+        return (scale(rank(self.c.mul(2).sub(self.l).sub(self.h)
+                           .div(self.h.sub(self.l).replace(0, 1e-5))
+                           .mul(self.v))).mul(2)
+                .sub(scale(rank(ts_argmax(self.c, 10)))).mul(-1)
+                .stack(self.primary_key)
+                .swaplevel())
